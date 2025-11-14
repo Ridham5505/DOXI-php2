@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOXI - Doctor Calendar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        (function(){
+            try{
+                const savedTheme = localStorage.getItem('theme') || 'light';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            }catch(_e){}
+        })();
+    </script>
+    <style>
+        body{margin:0;background:var(--gray-50);color:var(--gray-900);font-family:var(--font-family,'Inter',sans-serif);} 
+        .layout{max-width:1100px;margin:40px auto;padding:0 var(--spacing-6);display:grid;gap:var(--spacing-6);} 
+        .header{display:flex;align-items:center;justify-content:space-between;} 
+        .header-left{display:flex;align-items:center;gap:var(--spacing-4);} 
+        .logo{font-size:var(--font-size-2xl);font-weight:800;color:var(--primary-blue);} 
+        .tagline{font-size:var(--font-size-sm);color:var(--gray-500);} 
+        .theme-toggle{padding:8px 14px;border-radius:8px;border:1px solid var(--gray-200);background:var(--white);color:var(--gray-700);cursor:pointer;font-weight:600;display:flex;align-items:center;gap:8px;transition:all .3s;} 
+        .theme-toggle:hover{background:var(--gray-100);} 
+        .calendar-card{background:var(--white);border:1px solid var(--gray-200);border-radius:24px;padding:var(--spacing-6);box-shadow:var(--shadow-md);display:grid;gap:var(--spacing-4);} 
+        .calendar-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--spacing-4);} 
+        .calendar-title{font-size:var(--font-size-2xl);font-weight:700;margin:0;} 
+        .calendar-sub{color:var(--gray-500);margin-top:4px;} 
+        .calendar-controls{display:flex;align-items:center;gap:var(--spacing-6);} 
+        .month-display{font-weight:700;font-size:var(--font-size-lg);} 
+        .nav-buttons{display:flex;gap:10px;} 
+        .nav-btn{width:34px;height:34px;border:1px solid var(--gray-300);border-radius:12px;background:var(--white);cursor:pointer;display:grid;place-items:center;font-size:18px;font-weight:700;color:var(--gray-600);} 
+        .nav-btn:hover{background:var(--gray-100);} 
+        .weekday-row{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;text-align:center;font-size:var(--font-size-sm);color:var(--gray-500);font-weight:600;} 
+        .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;} 
+        .day-card{border:1px solid var(--gray-200);border-radius:18px;padding:12px 14px;background:var(--white);min-height:110px;display:flex;flex-direction:column;gap:10px;transition:box-shadow .2s;cursor:pointer;} 
+        .day-card:hover{box-shadow:var(--shadow-sm);} 
+        .day-card.disabled{background:var(--gray-100);color:var(--gray-400);cursor:not-allowed;box-shadow:none;} 
+        .day-card.today{border:2px solid var(--primary-blue);} 
+        .day-number{font-weight:700;font-size:var(--font-size-lg);} 
+        .chip-row{display:flex;flex-wrap:wrap;gap:6px;} 
+        .chip{padding:4px 10px;border-radius:999px;font-size:var(--font-size-xs);font-weight:600;} 
+        .chip-available{background:#dcfce7;color:#166534;} 
+        .chip-booked{background:#fee2e2;color:#991b1b;} 
+        .chip-unavailable{background:#ede9fe;color:#5b21b6;} 
+        .chip-none{background:var(--gray-200);color:var(--gray-600);} 
+        .legend{display:flex;gap:12px;flex-wrap:wrap;} 
+        .legend .chip{padding:6px 12px;} 
+        .detail-panel{background:var(--white);border:1px solid var(--gray-200);border-radius:24px;padding:var(--spacing-6);box-shadow:var(--shadow-sm);display:grid;gap:var(--spacing-4);} 
+        .detail-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--spacing-4);} 
+        .detail-date{font-size:var(--font-size-xl);font-weight:700;margin:0;} 
+        .detail-summary{color:var(--gray-500);} 
+        .detail-actions{display:flex;gap:var(--spacing-3);} 
+        .btn{padding:10px 18px;border-radius:14px;border:1px solid var(--gray-300);background:var(--white);color:var(--gray-700);font-weight:600;cursor:pointer;transition:all .2s;} 
+        .btn-primary{background:var(--primary-blue);border-color:var(--primary-blue);color:var(--white);} 
+        .btn:hover{background:var(--gray-100);} 
+        .btn-primary:hover{background:var(--primary-blue-dark);} 
+        .detail-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--spacing-4);} 
+        .detail-card{border:1px solid var(--gray-200);border-radius:18px;padding:var(--spacing-4);background:var(--gray-50);display:grid;gap:var(--spacing-3);} 
+        .detail-card h4{margin:0;font-size:var(--font-size-base);font-weight:700;color:var(--gray-700);} 
+        .list-item{display:flex;justify-content:space-between;align-items:center;font-size:var(--font-size-sm);padding:6px 0;border-bottom:1px solid var(--gray-200);} 
+        .list-item:last-child{border-bottom:none;} 
+        .list-actions{display:flex;gap:8px;} 
+        .mini-btn{padding:4px 10px;border-radius:999px;border:1px solid var(--gray-300);background:var(--white);font-size:var(--font-size-xs);font-weight:600;cursor:pointer;} 
+        .mini-btn.danger{border-color:#ef4444;color:#ef4444;} 
+        .mini-btn:hover{background:var(--gray-100);} 
+        .empty-state{padding:var(--spacing-5);text-align:center;color:var(--gray-500);} 
+        .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.35);display:none;align-items:center;justify-content:center;z-index:2000;} 
+        .modal{width:100%;max-width:460px;background:var(--white);border-radius:20px;padding:var(--spacing-5);box-shadow:var(--shadow-lg);display:grid;gap:var(--spacing-4);} 
+        .modal h3{margin:0;} 
+        .modal-form{display:grid;gap:var(--spacing-3);} 
+        .modal-form label{font-weight:600;color:var(--gray-700);} 
+        .modal-form input,.modal-form select,.modal-form textarea{width:100%;padding:10px 12px;border:1px solid var(--gray-300);border-radius:12px;font-size:var(--font-size-sm);} 
+        .modal-actions{display:flex;justify-content:flex-end;gap:var(--spacing-3);} 
+        @media(max-width:720px){
+            .calendar-grid{grid-template-columns:repeat(1,1fr);}
+            .weekday-row{grid-template-columns:repeat(1,1fr);}
+            .calendar-controls{flex-direction:column;align-items:flex-start;gap:10px;}
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <div class="header">
+            <div class="header-left">
+                <div>
+                    <div class="logo">DOXI</div>
+                    <div class="tagline">Doctor Calendar</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:var(--spacing-3);">
+                <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">
+                    <span id="theme-icon">🌙</span>
+                    <span id="theme-text">Dark</span>
+                </button>
+                <a href="doctor-dashboard.php" style="text-decoration:none;color:var(--gray-600);font-weight:600;">← Back to Dashboard</a>
+            </div>
+        </div>
+
+        <div class="calendar-card" aria-labelledby="calendar-title">
+            <div class="calendar-top">
+                <div>
+                    <h2 class="calendar-title" id="calendar-title">Schedule Overview</h2>
+                    <p class="calendar-sub">Review your appointments and availability by day.</p>
+                </div>
+                <div class="calendar-controls">
+                    <div class="month-display" id="current-month"></div>
+                    <div class="nav-buttons">
+                        <button class="nav-btn" id="prev-month" aria-label="Previous month">←</button>
+                        <button class="nav-btn" id="next-month" aria-label="Next month">→</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="chip chip-available">Available</div>
+                <div class="chip chip-booked">Booked</div>
+                <div class="chip chip-unavailable">Unavailable</div>
+                <div class="chip chip-none">No schedule</div>
+            </div>
+
+            <div class="weekday-row" id="weekday-row"></div>
+            <div class="calendar-grid" id="calendar-grid"></div>
+        </div>
+
+        <div class="detail-panel" aria-live="polite">
+            <div class="detail-header">
+                <h3 class="detail-date" id="detail-date">Select a date</h3>
+                <div class="detail-summary" id="detail-summary"></div>
+                <div class="detail-actions">
+                    <button class="btn btn-primary" id="btn-add-availability" disabled>Add Availability</button>
+                </div>
+            </div>
+            <div class="detail-columns" id="detail-content">
+                <div class="empty-state">Choose a date on the calendar to see details.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="availability-modal">
+        <div class="modal">
+            <h3 id="availability-modal-title">Add Availability</h3>
+            <form class="modal-form" id="availability-form">
+                <input type="hidden" id="availability-id-input">
+                <input type="hidden" id="availability-date-input">
+                <label for="availability-start">Start Time</label>
+                <input type="time" id="availability-start" required>
+                <label for="availability-end">End Time</label>
+                <input type="time" id="availability-end" required>
+                <label for="availability-status">Status</label>
+                <select id="availability-status">
+                    <option value="available">Available</option>
+                    <option value="unavailable">Unavailable</option>
+                </select>
+                <label for="availability-notes">Notes</label>
+                <textarea id="availability-notes" placeholder="Optional notes"></textarea>
+                <div class="modal-actions">
+                    <button type="button" class="btn" id="availability-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="availability-save">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        if (sessionStorage.getItem('isLoggedIn') !== 'true' || sessionStorage.getItem('userRole') !== 'doctor') {
+            window.location.href = 'login.php';
+        }
+
+        const doctorId = parseInt(sessionStorage.getItem('userId') || '0', 10);
+        if (!doctorId) {
+            alert('Doctor information missing. Please sign in again.');
+            window.location.href = 'login.php';
+        }
+
+        const weekdayRow = document.getElementById('weekday-row');
+        const calendarGrid = document.getElementById('calendar-grid');
+        const currentMonthLabel = document.getElementById('current-month');
+        const detailDate = document.getElementById('detail-date');
+        const detailSummary = document.getElementById('detail-summary');
+        const detailContent = document.getElementById('detail-content');
+
+        const weekdayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        weekdayRow.innerHTML = weekdayNames.map(name=>`<div>${name}</div>`).join('');
+
+        let monthCursor = new Date();
+        monthCursor.setDate(1);
+        let appointments = [];
+        let availability = [];
+        let selectedDateKey = null;
+
+        async function loadData(){
+            try{
+                const [apptRes, availRes] = await Promise.all([
+                    fetch(`api/appointments.php?doctor_id=${doctorId}`),
+                    fetch(`api/availability.php?doctor_id=${doctorId}`)
+                ]);
+                const apptJson = await apptRes.json();
+                const availJson = await availRes.json();
+                appointments = apptJson.success ? (apptJson.data||[]) : [];
+                availability = availJson.success ? (availJson.data||[]) : [];
+            }catch(e){
+                console.error('Load data error', e);
+                appointments = [];
+                availability = [];
+            }
+            renderCalendar();
+            if (selectedDateKey){
+                const data = getDayData(selectedDateKey);
+                showDayDetail(parseDateKey(selectedDateKey), data.appts, data.availableSlots, data.unavailableSlots);
+            }
+        }
+
+        function formatMonthLabel(date){
+            const options = { month:'long', year:'numeric' };
+            return date.toLocaleDateString(undefined, options);
+        }
+
+        function getDateKey(date){
+            return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+        }
+
+        function parseDateKey(key){
+            const [y,m,d] = key.split('-').map(Number);
+            return new Date(y, m-1, d);
+        }
+
+        function getDayData(dateKey){
+            return {
+                appts: appointments.filter(a => a.appt_date === dateKey),
+                availableSlots: availability.filter(a => a.availability_date === dateKey && a.status === 'available'),
+                unavailableSlots: availability.filter(a => a.availability_date === dateKey && a.status !== 'available')
+            };
+        }
+
+        function renderCalendar(){
+            currentMonthLabel.textContent = formatMonthLabel(monthCursor);
+            calendarGrid.innerHTML = '';
+
+            const startDay = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+            const endDay = new Date(monthCursor.getFullYear(), monthCursor.getMonth()+1, 0);
+            const today = new Date(); today.setHours(0,0,0,0);
+
+            const leadingBlanks = startDay.getDay();
+            for (let i=0;i<leadingBlanks;i++){
+                const cell = document.createElement('div');
+                cell.className = 'day-card disabled';
+                calendarGrid.appendChild(cell);
+            }
+
+            for (let day=1; day<=endDay.getDate(); day++){
+                const dateObj = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), day);
+                const dateKey = getDateKey(dateObj);
+                const data = getDayData(dateKey);
+
+                const cell = document.createElement('div');
+                cell.className = 'day-card';
+                if (dateObj.getTime() === today.getTime()) cell.classList.add('today');
+                const isPast = dateObj < today;
+                if (isPast) cell.classList.add('disabled');
+
+                const dayNum = document.createElement('div');
+                dayNum.className = 'day-number';
+                dayNum.textContent = day;
+                cell.appendChild(dayNum);
+
+                const chips = document.createElement('div');
+                chips.className = 'chip-row';
+                if (data.availableSlots.length) chips.appendChild(makeChip(`${data.availableSlots.length} available`, 'chip-available'));
+                if (data.appts.length) chips.appendChild(makeChip(`${data.appts.length} booked`, 'chip-booked'));
+                if (data.unavailableSlots.length) chips.appendChild(makeChip(`${data.unavailableSlots.length} unavailable`, 'chip-unavailable'));
+                if (!chips.children.length) chips.appendChild(makeChip('No schedule', 'chip-none'));
+                cell.appendChild(chips);
+
+                if (!isPast){
+                    cell.addEventListener('click', ()=>showDayDetail(dateObj, data.appts, data.availableSlots, data.unavailableSlots));
+                }
+
+                calendarGrid.appendChild(cell);
+            }
+        }
+
+        function makeChip(text, className){
+            const chip = document.createElement('div');
+            chip.className = `chip ${className}`;
+            chip.textContent = text;
+            return chip;
+        }
+
+        function showDayDetail(dateObj, appts, availableSlots, unavailableSlots){
+            selectedDateKey = getDateKey(dateObj);
+            detailDate.textContent = dateObj.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+            const summary = [];
+            if (availableSlots.length) summary.push(`${availableSlots.length} available block${availableSlots.length===1?'':'s'}`);
+            if (unavailableSlots.length) summary.push(`${unavailableSlots.length} unavailable block${unavailableSlots.length===1?'':'s'}`);
+            if (appts.length) summary.push(`${appts.length} appointment${appts.length===1?'':'s'}`);
+            detailSummary.textContent = summary.length ? summary.join(' • ') : 'No schedule for this day.';
+            document.getElementById('btn-add-availability').disabled = false;
+
+            const columns = [];
+            if (availableSlots.length){
+                const col = ['<div class="detail-card"><h4>Available</h4>'];
+                availableSlots.forEach(slot => {
+                    col.push(renderAvailabilityRow(slot));
+                });
+                col.push('</div>');
+                columns.push(col.join(''));
+            }
+            if (unavailableSlots.length){
+                const col = ['<div class="detail-card"><h4>Unavailable</h4>'];
+                unavailableSlots.forEach(slot => {
+                    col.push(renderAvailabilityRow(slot, true));
+                });
+                col.push('</div>');
+                columns.push(col.join(''));
+            }
+            if (appts.length){
+                const col = ['<div class="detail-card"><h4>Appointments</h4>'];
+                appts.forEach(appt => {
+                    const patient = appt.patient_name || `Patient #${appt.patient_id}`;
+                    col.push(`<div class="list-item"><span>${appt.appt_time.substring(0,5)} • ${patient}</span><span>${(appt.status||'').toUpperCase()}</span></div>`);
+                });
+                col.push('</div>');
+                columns.push(col.join(''));
+            }
+            detailContent.innerHTML = columns.length ? columns.join('') : '<div class="empty-state">No availability or appointments recorded for this day.</div>';
+        }
+
+        function renderAvailabilityRow(slot, isUnavailable=false){
+            const label = `${slot.start_time.substring(0,5)} – ${slot.end_time.substring(0,5)}${slot.notes ? ` • ${slot.notes}` : ''}`;
+            return `<div class="list-item"><span>${label}</span><span class="list-actions"><button class="mini-btn" data-action="edit-availability" data-id="${slot.id}">Edit</button><button class="mini-btn danger" data-action="delete-availability" data-id="${slot.id}">Delete</button></span></div>`;
+        }
+
+        calendarGrid.addEventListener('click', e=>{
+            const actionBtn = e.target.closest('button[data-action]');
+            if (!actionBtn) return;
+        });
+
+        detailContent.addEventListener('click', e=>{
+            const button = e.target.closest('button[data-action]');
+            if (!button) return;
+            const id = parseInt(button.dataset.id,10);
+            if (button.dataset.action === 'edit-availability'){
+                const slot = availability.find(a=>a.id===id);
+                if (slot) openAvailabilityModal('edit', slot);
+            } else if (button.dataset.action === 'delete-availability'){
+                deleteAvailability(id);
+            }
+        });
+
+        document.getElementById('btn-add-availability').addEventListener('click', ()=>{
+            if (!selectedDateKey) return;
+            openAvailabilityModal('add', { availability_date: selectedDateKey, start_time:'10:00', end_time:'11:00', status:'available', notes:'' });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        function openAvailabilityModal(mode, slot){
+            const modal = document.getElementById('availability-modal');
+            modal.style.display = 'flex';
+            document.getElementById('availability-modal-title').textContent = mode === 'edit' ? 'Edit Availability' : 'Add Availability';
+            document.getElementById('availability-id-input').value = slot.id || '';
+            document.getElementById('availability-date-input').value = slot.availability_date || selectedDateKey;
+            document.getElementById('availability-start').value = slot.start_time ? slot.start_time.substring(0,5) : '10:00';
+            document.getElementById('availability-end').value = slot.end_time ? slot.end_time.substring(0,5) : '11:00';
+            document.getElementById('availability-status').value = slot.status || 'available';
+            document.getElementById('availability-notes').value = slot.notes || '';
+        }
+
+        function closeAvailabilityModal(){
+            document.getElementById('availability-modal').style.display = 'none';
+        }
+
+        document.getElementById('availability-cancel').addEventListener('click', closeAvailabilityModal);
+        document.getElementById('availability-modal').addEventListener('click', e=>{ if (e.target.id === 'availability-modal') closeAvailabilityModal(); });
+
+        document.getElementById('availability-form').addEventListener('submit', async (e)=>{
+            e.preventDefault();
+            const id = document.getElementById('availability-id-input').value;
+            const payload = {
+                doctor_id: doctorId,
+                availability_date: document.getElementById('availability-date-input').value,
+                start_time: document.getElementById('availability-start').value,
+                end_time: document.getElementById('availability-end').value,
+                status: document.getElementById('availability-status').value,
+                notes: document.getElementById('availability-notes').value.trim()
+            };
+            if (!payload.availability_date) {
+                alert('Please pick a date from the calendar first.');
+                return;
+            }
+            if (payload.start_time >= payload.end_time){
+                alert('End time must be after start time.');
+                return;
+            }
+            const method = id ? 'PUT' : 'POST';
+            if (id) payload.id = parseInt(id,10);
+            try{
+                const res = await fetch('api/availability.php', {
+                    method,
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+                if (!json.success) throw new Error(json.message||'Save failed');
+                closeAvailabilityModal();
+                await loadData();
+            }catch(err){
+                alert(err.message || 'Unable to save availability.');
+            }
+        });
+
+        async function deleteAvailability(id){
+            if (!confirm('Delete this availability block?')) return;
+            try{
+                const res = await fetch('api/availability.php', {
+                    method:'DELETE',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ id })
+                });
+                const json = await res.json();
+                if (!json.success) throw new Error(json.message||'Delete failed');
+                await loadData();
+            }catch(err){
+                alert(err.message || 'Unable to delete availability.');
+            }
+        }
+
+        document.getElementById('prev-month').addEventListener('click', ()=>{
+            monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth()-1, 1);
+            renderCalendar();
+        });
+        document.getElementById('next-month').addEventListener('click', ()=>{
+            monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth()+1, 1);
+            renderCalendar();
+        });
+
+        function applyTheme(theme){
+            const t = (theme === 'dark') ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', t);
+            try{ localStorage.setItem('theme', t); }catch(_e){}
+            updateThemeToggle(t);
+        }
+
+        function updateThemeToggle(theme){
+            const icon = document.getElementById('theme-icon');
+            const text = document.getElementById('theme-text');
+            if (icon && text){
+                if (theme === 'dark'){
+                    icon.textContent = '☀️';
+                    text.textContent = 'Light';
+                } else {
+                    icon.textContent = '🌙';
+                    text.textContent = 'Dark';
+                }
+            }
+        }
+
+        function toggleTheme(){
+            const current = document.documentElement.getAttribute('data-theme') || 'light';
+            applyTheme(current === 'dark' ? 'light' : 'dark');
+        }
+
+        (function init(){
+            try{
+                const savedTheme = localStorage.getItem('theme') || 'light';
+                updateThemeToggle(savedTheme);
+            }catch(_e){}
+            renderCalendar();
+            loadData();
+        })();
+    </script>
+</body>
+</html>
