@@ -57,13 +57,7 @@
                     <div class="form-group">
                         <label for="specialty">Specialty</label>
                         <select id="specialty" name="specialty" required>
-                            <option value="">Select</option>
-                            <option>General Medicine</option>
-                            <option>Cardiology</option>
-                            <option>Pediatrics</option>
-                            <option>Orthopedics</option>
-                            <option>Neurology</option>
-                            <option>Dermatology</option>
+                            <option value="">Select Specialty</option>
                         </select>
                         <div class="error-message" id="specialty-error"></div>
                     </div>
@@ -100,8 +94,8 @@
                         <div class="error-message" id="experience-error"></div>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label for="address">Practice Address</label>
+                    <div class="form-group">
+                        <label for="address">Address</label>
                     <input id="address" name="address">
                     <div class="error-message" id="address-error"></div>
                 </div>
@@ -279,8 +273,25 @@
             }
         }
         
+        const DOCTOR_SPECIALTIES = [
+            'Allergy & Immunology','Anesthesiology','Cardiology','Dermatology','Endocrinology',
+            'Family Medicine','Gastroenterology','General Medicine','General Surgery','Geriatrics',
+            'Hematology','Infectious Disease','Internal Medicine','Nephrology','Neurology',
+            'Obstetrics & Gynecology','Oncology','Ophthalmology','Orthopedics','Otolaryngology (ENT)',
+            'Pediatrics','Physical Medicine & Rehabilitation','Psychiatry','Pulmonology','Radiology',
+            'Rheumatology','Sports Medicine','Urology'
+        ];
+
+        function populateSpecialtyDropdown(){
+            const select = document.getElementById('specialty');
+            if (!select) return;
+            const unique = Array.from(new Set(DOCTOR_SPECIALTIES)).sort((a,b)=>a.localeCompare(b));
+            select.innerHTML = '<option value="">Select Specialty</option>' + unique.map(spec => `<option value="${spec}">${spec}</option>`).join('');
+        }
+
         // Real-time validation
         document.addEventListener('DOMContentLoaded', function() {
+            populateSpecialtyDropdown();
             const fields = {
                 firstName: { validator: (v) => validateName(v, 'First name') },
                 lastName: { validator: (v) => validateName(v, 'Last name') },

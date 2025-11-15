@@ -379,5 +379,6 @@
             document.getElementById('admin-username').focus();
         });
     </script>
+    <script src="public/js/email-phone-validation.js"></script>
 </body>
 </html>

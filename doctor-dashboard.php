@@ -123,6 +123,7 @@
             justify-content: center;
             color: var(--white);
             font-weight: 600;
+            cursor: pointer;
         }
         
         .user-details h3 {
@@ -689,7 +690,7 @@
                 doctorTitle: doctorTitle,
                 doctorIdText: doctorIdText,
                 welcomeTitle: welcomeTitle,
-                avatarInitial: (doctor.first_name || 'D').charAt(0).toUpperCase()
+                avatarInitial: 'D'
             };
             localStorage.setItem('doctorData', JSON.stringify(doctorData));
             
@@ -704,9 +705,8 @@
             if (doctorIdElement) {
                 doctorIdElement.textContent = doctorIdText;
             }
-            if (doctorAvatarElement && fullName) {
-                // Set avatar to first letter of first name
-                doctorAvatarElement.textContent = (doctor.first_name || 'D').charAt(0).toUpperCase();
+            if (doctorAvatarElement) {
+                doctorAvatarElement.textContent = 'D';
             }
             
             // Update dashboard welcome message
@@ -737,8 +737,8 @@
                     if (doctorIdElement && doctorData.doctorIdText) {
                         doctorIdElement.textContent = doctorData.doctorIdText;
                     }
-                    if (doctorAvatarElement && doctorData.avatarInitial) {
-                        doctorAvatarElement.textContent = doctorData.avatarInitial;
+                    if (doctorAvatarElement) {
+                        doctorAvatarElement.textContent = 'D';
                     }
                     
                     // Update dashboard welcome message
@@ -1137,6 +1137,13 @@
                 const savedTheme = localStorage.getItem('theme') || 'light';
                 updateThemeToggle(savedTheme);
             } catch(_e) {}
+
+            const avatarBtn = document.getElementById('doctor-avatar');
+            if (avatarBtn){
+                avatarBtn.addEventListener('click', () => {
+                    window.location.href = 'doctor-settings.php';
+                });
+            }
 
             // Load doctor data from localStorage immediately for persistent display
             loadDoctorDataFromStorage();

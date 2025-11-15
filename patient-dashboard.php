@@ -101,6 +101,7 @@
             justify-content: center;
             color: var(--white);
             font-weight: 600;
+            cursor: pointer;
         }
         
         .user-details h3 {
@@ -908,6 +909,12 @@ document.addEventListener('DOMContentLoaded', async ()=>{
                 const savedTheme = localStorage.getItem('theme') || 'light';
                 updateThemeToggle(savedTheme);
             }catch(_e){}
+            const avatarBtn = document.querySelector('.user-avatar');
+            if (avatarBtn){
+                avatarBtn.addEventListener('click', () => {
+                    window.location.href = 'patient-settings.php';
+                });
+            }
         })();
     </script>
 </body>

@@ -339,10 +339,20 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
         .mini-btn.danger{border-color:#ef4444;color:#ef4444;} 
 
         .analytics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:18px;}
+        .analytics-grid.two-column{grid-template-columns:repeat(2,minmax(280px,1fr));}
+        @media(max-width:900px){
+            .analytics-grid.two-column{grid-template-columns:1fr;}
+        }
         .analytics-card{border:1px solid var(--gray-200);border-radius:20px;padding:24px;background:var(--white);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:16px;}
         .analytics-card h3{margin:0;font-size:1.15rem;font-weight:700;color:var(--gray-900);} 
-        .analytics-chart{width:100%;height:240px;}
+        .analytics-chart{width:100%;height:240px;display:flex;flex-direction:column;justify-content:center;}
         .analytics-chart svg text{font-family:'Inter', sans-serif;}
+        .analytics-bars{display:flex;flex-direction:column;gap:12px;width:100%;}
+        .analytics-bar-header{display:flex;justify-content:space-between;font-size:12px;color:var(--gray-600);font-weight:600;}
+        .analytics-bar-track{height:10px;background:var(--gray-100);border-radius:999px;overflow:hidden;}
+        .analytics-bar-fill{height:100%;border-radius:999px;}
+        .analytics-summary{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;}
+        .analytics-pill{padding:6px 12px;border-radius:999px;background:var(--gray-100);color:var(--gray-600);font-size:12px;font-weight:600;}
  
         .log-meta{margin-top:6px;font-size:var(--font-size-xs);color:var(--gray-500);display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;}
         .log-meta span{background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:4px 8px;display:flex;flex-direction:column;}
@@ -772,7 +782,7 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                                 </div>
                                 <div class="modal-field">
                                     <label>Time</label>
-                                    <input type="time" id="apptTimeInput" name="apptTime" required>
+                                    <input type="time" id="apptTimeInput" name="apptTime" required min="10:00" max="19:00" step="1800">
                                 </div>
                                 <div class="modal-field">
                                     <label>Status</label>
@@ -936,11 +946,26 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                         <div class="kpi"><div class="lbl">Avg. Wait</div><div class="val">14m</div></div>
                         <div class="kpi"><div class="lbl">Satisfaction</div><div class="val">4.7/5</div></div>
                     </div>
-                    <div class="analytics-grid">
+                    <div class="analytics-grid two-column">
                         <div class="analytics-card">
                             <h3>Appointments Trend</h3>
                             <p style="margin:0;color:var(--gray-500);font-size:var(--font-size-sm);">Last 6 months of scheduled appointments.</p>
                             <div class="analytics-chart" id="analyticsChart"></div>
+                        </div>
+                        <div class="analytics-card">
+                            <h3>Patient Overview</h3>
+                            <p style="margin:0;color:var(--gray-500);font-size:var(--font-size-sm);">Distribution by gender.</p>
+                            <div class="analytics-chart" id="patientAnalyticsChart"></div>
+                        </div>
+                        <div class="analytics-card">
+                            <h3>Doctor Status</h3>
+                            <p style="margin:0;color:var(--gray-500);font-size:var(--font-size-sm);">Approval status mix.</p>
+                            <div class="analytics-chart" id="doctorAnalyticsChart"></div>
+                        </div>
+                        <div class="analytics-card">
+                            <h3>Review Ratings</h3>
+                            <p style="margin:0;color:var(--gray-500);font-size:var(--font-size-sm);">Latest rating distribution.</p>
+                            <div class="analytics-chart" id="reviewAnalyticsChart"></div>
                         </div>
                     </div>
                 </section>
@@ -1016,8 +1041,9 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                             </div>
                             <div class="modal-actions">
                                 <button type="button" class="btn" onclick="closeChangeEmailModal()">Cancel</button>
-                                <button type="submit" class="btn primary">Update Email</button>
+                                <button type="submit" class="btn primary" id="changeEmailBtn">Update Email</button>
                             </div>
+                            <div id="changeEmailStatus" class="settings-status" style="display:none;margin-top:8px;"></div>
                         </form>
                     </div>
                 </div>
@@ -1208,47 +1234,6 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             if (modal) modal.style.display = 'none';
         }
 
-        const changeEmailForm = document.getElementById('changeEmailForm');
-        if (changeEmailForm){
-            changeEmailForm.addEventListener('submit', async function(e){
-                e.preventDefault();
-                const newEmail = document.getElementById('newEmail').value.trim();
-                const confirmEmail = document.getElementById('confirmNewEmail').value.trim();
-                if (!newEmail || !confirmEmail || newEmail !== confirmEmail){
-                    alert('New email and confirm email must match.');
-                    return;
-                }
-                const profile = await ensureAdminProfile();
-                if (!profile || !profile.id){
-                    alert('Unable to load admin profile.');
-                    return;
-                }
-                const submitBtn = changeEmailForm.querySelector('button[type="submit"]');
-                const prevText = submitBtn.textContent;
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'Updating...';
-                try{
-                    const res = await fetch('api/users.php', {
-                        method:'PUT',
-                        headers:{'Content-Type':'application/json'},
-                        body: JSON.stringify({ id: profile.id, email: newEmail })
-                    });
-                    const json = await res.json();
-                    if (!json.success) throw new Error(json.message || 'Failed to update email');
-                    sessionStorage.setItem('userEmail', newEmail);
-                    adminProfileCache = Object.assign({}, profile, { email: newEmail });
-                    populateAdminProfile(adminProfileCache);
-                    document.getElementById('adminProfileStatus').textContent = 'Email updated';
-                    closeChangeEmailModal();
-                    alert('Email updated successfully.');
-                }catch(err){
-                    alert(err.message || 'Failed to update email');
-                }finally{
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = prevText;
-                }
-            });
-        }
 
         const changePasswordForm = document.getElementById('changePasswordForm');
         if (changePasswordForm){
@@ -2190,6 +2175,8 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             const form = document.getElementById('apptForm');
             form.reset();
             form.apptId.value = '';
+            setApptDateDefaults(mode);
+            setApptTimeDefaults(mode);
             // Load lists, then if edit fetch details
             Promise.all([ensureApptLists(), mode==='edit' ? fetch(`api/appointments.php?id=${id}`).then(r=>r.json()) : null])
                 .then(([_, details])=>{
@@ -2199,7 +2186,15 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                         form.patientId.value = a.patient_id;
                         form.doctorId.value = a.doctor_id;
                         form.apptDate.value = a.appt_date;
+                        if (form.apptDate.value && isSundayDate(form.apptDate.value)){
+                            form.apptDate.value = getNextNonSundayDate(form.apptDate.value);
+                            alert('Appointments cannot be scheduled on Sundays. Date has been moved to the next available day.');
+                        }
                         form.apptTime.value = a.appt_time;
+                        if (form.apptTime.value && !isTimeWithinClinicHours(form.apptTime.value)){
+                            form.apptTime.value = normalizeTimeToClinicHours(form.apptTime.value);
+                            alert('Appointment time has been adjusted to stay within clinic hours (10:00 AM – 7:00 PM).');
+                        }
                         form.status.value = a.status||'scheduled';
                         form.notes.value = a.notes||'';
                     }
@@ -2223,6 +2218,63 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             if (dSel) dSel.innerHTML = '<option value="">Select doctor</option>'+apptDoctors.map(u=>`<option value="${u.id}">${(u.first_name||'')+' '+(u.last_name||'')} • ${u.email||''}</option>`).join('');
         }
 
+        function isSundayDate(dateStr){
+            if (!dateStr) return false;
+            const parsed = new Date(dateStr + 'T00:00:00');
+            return !Number.isNaN(parsed.getTime()) && parsed.getDay() === 0;
+        }
+
+        function getNextNonSundayDate(startStr){
+            let date = startStr ? new Date(startStr + 'T00:00:00') : new Date();
+            if (Number.isNaN(date.getTime())) date = new Date();
+            while (date.getDay() === 0){
+                date.setDate(date.getDate() + 1);
+            }
+            return date.toISOString().slice(0,10);
+        }
+
+        function setApptDateDefaults(mode){
+            const input = document.getElementById('apptDateInput');
+            if (!input) return;
+            const todayIso = new Date().toISOString().slice(0,10);
+            input.min = todayIso;
+            if (mode !== 'edit'){
+                input.value = todayIso;
+            } else if (input.value && isSundayDate(input.value)){
+                alert('Existing appointment date falls on Sunday. Please select another date before saving.');
+            }
+        }
+
+        function setApptTimeDefaults(mode){
+            const input = document.getElementById('apptTimeInput');
+            if (!input) return;
+            if (mode !== 'edit' || !input.value){
+                input.value = getDefaultClinicTime();
+            } else if (input.value && !isTimeWithinClinicHours(input.value)){
+                const adjusted = normalizeTimeToClinicHours(input.value);
+                alert('Appointment time must be between 10:00 AM and 7:00 PM. Time has been adjusted.');
+                input.value = adjusted;
+            }
+        }
+
+        function enforceClinicHoursSelection(targetInput){
+            const input = targetInput || document.getElementById('apptTimeInput');
+            if (!input || !input.value) return;
+            if (!isTimeWithinClinicHours(input.value)){
+                alert('Time must be between 10:00 AM and 7:00 PM.');
+                input.value = normalizeTimeToClinicHours(input.value);
+            }
+        }
+
+        function enforceNoSundaySelection(targetInput){
+            const input = targetInput || document.getElementById('apptDateInput');
+            if (!input || !input.value) return;
+            if (isSundayDate(input.value)){
+                alert('Appointments cannot be scheduled on Sundays. Selecting the next available date.');
+                input.value = getNextNonSundayDate(input.value);
+            }
+        }
+
         function toMinutes(timeString){
             if (!timeString) return null;
             const [hh, mm] = timeString.split(':');
@@ -2244,6 +2296,40 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                 const end = toMinutes((range.end_time || '').substring(0,5));
                 return start !== null && end !== null && totalMinutes >= start && totalMinutes < end;
             });
+        }
+
+        function formatTimeFromMinutes(totalMinutes){
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}`;
+        }
+
+        function isTimeWithinClinicHours(timeStr){
+            if (!timeStr) return false;
+            const parts = timeStr.split(':').map(Number);
+            if (parts.length < 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) return false;
+            const minutes = parts[0] * 60 + parts[1];
+            return minutes >= (10 * 60) && minutes <= (19 * 60);
+        }
+
+        function normalizeTimeToClinicHours(timeStr){
+            if (!timeStr) return '10:00';
+            const parts = timeStr.split(':').map(Number);
+            if (parts.length < 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) return '10:00';
+            let minutes = parts[0] * 60 + parts[1];
+            minutes = Math.round(minutes / 30) * 30;
+            if (minutes < 10 * 60) minutes = 10 * 60;
+            if (minutes > 19 * 60) minutes = 19 * 60;
+            return formatTimeFromMinutes(minutes);
+        }
+
+        function getDefaultClinicTime(){
+            const now = new Date();
+            let minutes = now.getHours() * 60 + now.getMinutes();
+            minutes = Math.ceil(minutes / 30) * 30;
+            if (minutes < 10 * 60) minutes = 10 * 60;
+            if (minutes > 19 * 60) minutes = 19 * 60;
+            return formatTimeFromMinutes(minutes);
         }
 
         async function ensureSlotWithinAvailability(doctorId, date, time, excludeId){
@@ -2301,6 +2387,14 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             };
             const isEdit = !!payload.id;
             if (!payload.patient_id || !payload.doctor_id || !payload.appt_date || !payload.appt_time){ alert('Please select patient, doctor, date and time'); return; }
+            if (isSundayDate(payload.appt_date)){
+                alert('Appointments cannot be scheduled on Sundays. Please choose another date.');
+                return;
+            }
+            if (!isTimeWithinClinicHours(payload.appt_time)){
+                alert('Please select a time between 10:00 AM and 7:00 PM.');
+                return;
+            }
             const availabilityCheck = await ensureSlotWithinAvailability(payload.doctor_id, payload.appt_date, payload.appt_time, payload.id ? parseInt(payload.id, 10) : null);
             if (!availabilityCheck.ok){
                 alert(availabilityCheck.message || 'Selected time is not within doctor availability.');
@@ -2974,7 +3068,7 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
         async function deleteReview(id){
             if(!confirm('Delete this review?')) return;
             try{
-                const res = await fetch('api/reviews.php', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
+                const res = await fetch('api/reviews.php', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, is_admin: true }) });
                 const json = await res.json();
                 if (json.success){ renderReviews(); loadDashboardFromAPI(); }
                 else { alert('Delete failed: '+(json.message||'Unknown')); }
@@ -2992,7 +3086,7 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                     fetchRecent('patient', 12).catch(() => []), // Return empty array if fetch fails - used for dashboard table
                     fetch('api/patients.php').then(r => r.json()).then(data => data.success ? (data.data || []) : []).catch(() => []), // Fetch ALL patients for chart
                     fetch('api/appointments.php').then(r => r.json()).catch(() => ({success: false, data: []})),
-                    fetch('api/reviews.php?limit=5').then(r => r.json()).catch(() => ({success: false, data: []})),
+                    fetch('api/reviews.php?limit=200').then(r => r.json()).catch(() => ({success: false, data: []})),
                     fetch('api/users.php?role=doctor&page=1&limit=500').then(r => r.json()).catch(() => ({success:false, data: []}))
                 ]);
 
@@ -3175,7 +3269,12 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
 
                 if (appointmentsData.success && Array.isArray(appointmentsData.data) && appointmentsData.data.length){
                     renderAnalyticsChart(appointmentsData.data);
+                } else {
+                    renderAnalyticsChart([]);
                 }
+                renderPatientAnalyticsChart(allPatientsForChart);
+                renderDoctorAnalyticsChart(allDoctorsData.success ? allDoctorsData.data : []);
+                renderReviewAnalyticsChart(reviewsData.success ? reviewsData.data : []);
             }catch(e){
                 console.warn('Dashboard API load failed, using placeholders', e);
                 renderDashboardFallback();
@@ -3287,6 +3386,26 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             const avatarBtn = document.getElementById('avatar');
             if (avatarBtn) {
                 avatarBtn.addEventListener('click', () => setSection('settings'));
+            }
+
+            const adminApptDateInput = document.getElementById('apptDateInput');
+            if (adminApptDateInput){
+                adminApptDateInput.addEventListener('change', () => enforceNoSundaySelection(adminApptDateInput));
+                if (!adminApptDateInput.value){
+                    adminApptDateInput.value = new Date().toISOString().slice(0,10);
+                } else if (isSundayDate(adminApptDateInput.value)){
+                    enforceNoSundaySelection(adminApptDateInput);
+                }
+            }
+
+            const adminApptTimeInput = document.getElementById('apptTimeInput');
+            if (adminApptTimeInput){
+                adminApptTimeInput.addEventListener('change', () => enforceClinicHoursSelection(adminApptTimeInput));
+                if (!adminApptTimeInput.value){
+                    adminApptTimeInput.value = getDefaultClinicTime();
+                } else if (!isTimeWithinClinicHours(adminApptTimeInput.value)){
+                    enforceClinicHoursSelection(adminApptTimeInput);
+                }
             }
 
             setSection(targetSection, true, true);
@@ -3462,6 +3581,122 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             svg += '</svg>';
             container.innerHTML = svg;
         }
+
+        function renderPatientAnalyticsChart(patients){
+            const container = document.getElementById('patientAnalyticsChart');
+            if (!container) return;
+            if (!Array.isArray(patients) || !patients.length){
+                container.innerHTML = '<div class="empty-state">No patient data yet.</div>';
+                return;
+            }
+            const counts = { female:0, male:0, other:0 };
+            patients.forEach(p => {
+                const gender = (p.gender || 'other').toLowerCase();
+                if (gender.startsWith('f')) counts.female++;
+                else if (gender.startsWith('m')) counts.male++;
+                else counts.other++;
+            });
+            const data = [
+                { label: 'Female', value: counts.female, color: '#f472b6' },
+                { label: 'Male', value: counts.male, color: '#60a5fa' },
+                { label: 'Other', value: counts.other, color: '#a78bfa' }
+            ];
+            const total = data.reduce((sum, d) => sum + d.value, 0);
+            if (!total){
+                container.innerHTML = '<div class="empty-state">No gender data available.</div>';
+                return;
+            }
+            const bars = data.map(entry => {
+                const percent = Math.round((entry.value / total) * 100);
+                return `
+                    <div>
+                        <div class="analytics-bar-header">
+                            <span>${entry.label}</span>
+                            <span>${entry.value} (${percent}%)</span>
+                        </div>
+                        <div class="analytics-bar-track">
+                            <div class="analytics-bar-fill" style="width:${percent}%;background:${entry.color};"></div>
+                        </div>
+                    </div>`;
+            }).join('');
+            const summary = data.map(entry => `<span class="analytics-pill" style="background:${entry.color}1a;color:${entry.color}">${entry.label}: ${entry.value}</span>`).join('');
+            container.innerHTML = `<div class="analytics-summary">${summary}</div><div class="analytics-bars">${bars}</div>`;
+        }
+
+        function renderDoctorAnalyticsChart(doctors){
+            const container = document.getElementById('doctorAnalyticsChart');
+            if (!container) return;
+            if (!Array.isArray(doctors) || !doctors.length){
+                container.innerHTML = '<div class="empty-state">No doctor data yet.</div>';
+                return;
+            }
+            const counts = { approved:0, pending:0, rejected:0 };
+            doctors.forEach(doc => {
+                const status = (doc.doctor_status || 'approved').toLowerCase();
+                if (status === 'pending') counts.pending++;
+                else if (status === 'rejected') counts.rejected++;
+                else counts.approved++;
+            });
+            const data = [
+                { label: 'Approved', value: counts.approved, color: '#10b981' },
+                { label: 'Pending', value: counts.pending, color: '#fbbf24' },
+                { label: 'Rejected', value: counts.rejected, color: '#f87171' }
+            ];
+            const total = data.reduce((sum, d) => sum + d.value, 0);
+            if (!total){
+                container.innerHTML = '<div class="empty-state">No doctor status data.</div>';
+                return;
+            }
+            const bars = data.map(entry => {
+                const percent = Math.round((entry.value / total) * 100);
+                return `
+                    <div>
+                        <div class="analytics-bar-header">
+                            <span>${entry.label}</span>
+                            <span>${entry.value} (${percent}%)</span>
+                        </div>
+                        <div class="analytics-bar-track">
+                            <div class="analytics-bar-fill" style="width:${percent}%;background:${entry.color};"></div>
+                        </div>
+                    </div>`;
+            }).join('');
+            const summary = data.map(entry => `<span class="analytics-pill" style="background:${entry.color}1a;color:${entry.color}">${entry.label}: ${entry.value}</span>`).join('');
+            container.innerHTML = `<div class="analytics-summary">${summary}</div><div class="analytics-bars">${bars}</div>`;
+        }
+
+        function renderReviewAnalyticsChart(reviews){
+            const container = document.getElementById('reviewAnalyticsChart');
+            if (!container) return;
+            if (!Array.isArray(reviews) || !reviews.length){
+                container.innerHTML = '<div class="empty-state">No review data yet.</div>';
+                return;
+            }
+            const buckets = [0,0,0,0,0];
+            reviews.forEach(r => {
+                const rating = Math.min(5, Math.max(1, parseInt(r.rating || 0, 10)));
+                buckets[rating - 1]++;
+            });
+            const total = buckets.reduce((sum, val) => sum + val, 0);
+            if (!total){
+                container.innerHTML = '<div class="empty-state">No review data yet.</div>';
+                return;
+            }
+            const bars = buckets.map((value, idx) => {
+                const percent = Math.round((value / total) * 100);
+                return `
+                    <div>
+                        <div class="analytics-bar-header">
+                            <span>${idx + 1} ★</span>
+                            <span>${value} (${percent}%)</span>
+                        </div>
+                        <div class="analytics-bar-track">
+                            <div class="analytics-bar-fill" style="width:${percent}%;background:#f97316;"></div>
+                        </div>
+                    </div>`;
+            }).join('');
+            container.innerHTML = `<div class="analytics-bars">${bars}</div>`;
+        }
+
 
         function showChangePasswordStatus(message, isSuccess){
             const status = document.getElementById('changePasswordStatus');

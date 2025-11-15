@@ -132,18 +132,21 @@ function handleDelete($conn, $in){
   $existing = $existingStmt->get_result()->fetch_assoc();
   if (!$existing){ http_response_code(404); echo json_encode(['success'=>false,'message'=>'Review not found']); return; }
 
-  $requestPatientId = isset($in['patient_id']) ? intval($in['patient_id']) : 0;
-  $ownerId = isset($existing['patient_id']) ? intval($existing['patient_id']) : 0;
-  if (!$ownerId || $requestPatientId !== $ownerId){
-    http_response_code(403);
-    echo json_encode(['success'=>false,'message'=>'Only the patient who created this review can delete it.']);
-    return;
-  }
+  $isAdmin = !empty($in['is_admin']);
+  if (!$isAdmin){
+    $requestPatientId = isset($in['patient_id']) ? intval($in['patient_id']) : 0;
+    $ownerId = isset($existing['patient_id']) ? intval($existing['patient_id']) : 0;
+    if (!$ownerId || $requestPatientId !== $ownerId){
+      http_response_code(403);
+      echo json_encode(['success'=>false,'message'=>'Only the patient who created this review can delete it.']);
+      return;
+    }
 
-  if (!isWithinEditWindow($existing['created_at'])){
-    http_response_code(403);
-    echo json_encode(['success'=>false,'message'=>'Reviews cannot be deleted after 30 minutes.']);
-    return;
+    if (!isWithinEditWindow($existing['created_at'])){
+      http_response_code(403);
+      echo json_encode(['success'=>false,'message'=>'Reviews cannot be deleted after 30 minutes.']);
+      return;
+    }
   }
 
   $stmt = $conn->prepare('DELETE FROM reviews WHERE id=?');

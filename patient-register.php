@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/svg+xml" href="public/assets/doxi-icon.svg?v=1">
     <style>
         .register-container{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--light-blue) 0%, var(--white) 100%);padding:var(--spacing-6)}
         .register-card{background:#fff;padding:var(--spacing-12);border-radius:var(--radius-2xl);box-shadow:var(--shadow-xl);width:100%;max-width:640px}
