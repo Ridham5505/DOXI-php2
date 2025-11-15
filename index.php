@@ -65,6 +65,23 @@
             color: var(--gray-900);
         }
         
+        .nav-brand{
+            display:flex;
+            align-items:center;
+            gap:12px;
+        }
+
+        .nav-logo{
+            display:block;
+            height:48px;
+            width:auto;
+        }
+
+        .nav-tagline{
+            font-size:0.9rem;
+            color:var(--gray-500);
+        }
+
         .theme-toggle {
             padding: 8px 14px;
             border-radius: 8px;
@@ -118,9 +135,8 @@
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-brand" aria-label="DOXI logo">
-                <img src="public/assets/doxi-icon.svg" alt="DOXI icon" class="nav-icon" width="40" height="40">
-                <span class="nav-title">DOXI</span>
-                <span class="tagline nav-tagline">Your Health, Our Priority</span>
+                <img src="public/assets/doxi-logo.svg?v=4" alt="DOXI logo" class="nav-logo" width="140" height="40">
+                <span class="nav-tagline">Your Health, Our Priority</span>
             </div>
             <ul class="nav-menu">
                 <li><a href="#features">Features</a></li>

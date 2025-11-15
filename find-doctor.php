@@ -41,7 +41,10 @@
         html, body { margin:0; background: var(--gray-50); color: var(--gray-900); transition: background 0.3s, color 0.3s; }
         body { background: var(--gray-50); }
         .page { max-width: 1100px; margin: 40px auto; padding: 0 var(--spacing-6); }
-        .header { display:flex; align-items:center; justify-content: space-between; margin-bottom: var(--spacing-6); }
+        .header { display:flex; align-items:center; justify-content: space-between; margin-bottom: var(--spacing-6); flex-wrap:wrap; gap:var(--spacing-4); }
+        .header-left{display:flex; flex-direction:column; gap:6px;}
+        .logo{display:flex; align-items:center;}
+        .logo img{display:block;height:48px;width:auto;}
         .filters { display:grid; grid-template-columns: 1.2fr .8fr .8fr; gap: var(--spacing-4); }
         @media(max-width: 900px){ .filters{ grid-template-columns: 1fr; }}
         .card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-xl); box-shadow: var(--shadow-md); }
@@ -59,7 +62,6 @@
         input, select { background: var(--white); color: var(--gray-900); transition: background 0.3s, border-color 0.3s; }
         input:focus, select:focus { outline: none; border-color: var(--primary-blue); }
         .logo { font-size: var(--font-size-2xl); font-weight: 800; color: var(--primary-blue); transition: color 0.3s; }
-        .logo img{display:block;height:36px;width:auto;}
         .tagline { color: var(--gray-600); font-size: var(--font-size-sm); font-weight: 500; transition: color 0.3s; }
         .back { text-decoration: none; color: var(--gray-600); transition: color 0.3s; }
         .back:hover { color: var(--gray-900); }
@@ -74,8 +76,10 @@
 <body>
     <div class="page">
         <div class="header">
-            <div>
-                <div class="logo"><img src="public/assets/doxi-logo.svg?v=4" alt="DOXI" style="height:52px;width:auto;"></div>
+            <div class="header-left">
+                <div class="logo">
+                    <img src="public/assets/doxi-lockup.svg" alt="DOXI logo" width="120" height="40">
+                </div>
                 <div class="tagline">Find Doctor</div>
             </div>
             <div style="display:flex; align-items:center; gap: var(--spacing-4);">
@@ -118,10 +122,74 @@
         function esc(s){ return (s||'').replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 
         let state = { q: '', specialty: '' };
+        const BASE_SPECIALTIES = [
+            'Allergy & Immunology',
+            'Anesthesiology',
+            'Cardiology',
+            'Dermatology',
+            'Endocrinology',
+            'Family Medicine',
+            'Gastroenterology',
+            'General Medicine',
+            'General Surgery',
+            'Geriatrics',
+            'Hematology',
+            'Infectious Disease',
+            'Internal Medicine',
+            'Nephrology',
+            'Neurology',
+            'Obstetrics & Gynecology',
+            'Oncology',
+            'Ophthalmology',
+            'Orthopedics',
+            'Otolaryngology (ENT)',
+            'Pediatrics',
+            'Physical Medicine & Rehabilitation',
+            'Psychiatry',
+            'Pulmonology',
+            'Radiology',
+            'Rheumatology',
+            'Sports Medicine',
+            'Urology'
+        ];
+
+        function renderSpecialtyOptions(extraSpecs = []){
+            const select = document.getElementById('specialty');
+            if (!select) return;
+            const merged = Array.from(new Set([
+                ...BASE_SPECIALTIES,
+                ...extraSpecs.filter(Boolean).map(spec => spec.trim()).filter(Boolean)
+            ])).sort((a,b)=>a.localeCompare(b));
+            const previous = state.specialty || select.value || '';
+            select.innerHTML = '<option value="">All</option>' + merged.map(spec => `<option value="${esc(spec)}">${esc(spec)}</option>`).join('');
+            if (previous && merged.includes(previous)) {
+                select.value = previous;
+            } else {
+                select.value = '';
+                state.specialty = '';
+            }
+        }
+
+        async function loadSpecialtyOptions(){
+            try{
+                const res = await getJSON('api/users.php?role=doctor&page=1&limit=1000');
+                if (!res.success) throw new Error(res.message||'Failed to fetch');
+                const specs = [];
+                (res.data || []).forEach(doc => {
+                    const spec = (doc.specialty || '').trim();
+                    if (spec) specs.push(spec);
+                });
+                renderSpecialtyOptions(specs);
+            }catch(e){
+                console.error('Failed to load specialties', e);
+                renderSpecialtyOptions();
+            }
+        }
 
         async function loadDoctors(){
             const params = new URLSearchParams();
             params.set('role','doctor');
+            params.set('doctor_status','approved');
             if (state.q) params.set('search', state.q);
             params.set('page', 1);
             params.set('limit', 1000); // Fetch all doctors
@@ -131,13 +199,9 @@
             if (!res.success){ list.innerHTML = `<div class="card empty">Failed to load doctors.</div>`; return; }
 
             // Build specialty options from results if available
-            const specSel = document.getElementById('specialty');
-            const specs = new Set();
-            (res.data||[]).forEach(u=>{ if (u.specialty) specs.add(u.specialty); });
-            const currentSpecs = Array.from(specSel.options).map(o=>o.value);
-            if (Array.from(specs).some(s=>!currentSpecs.includes(s))){
-                specSel.innerHTML = '<option value="">All</option>' + Array.from(specs).map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
-            }
+            const specs = [];
+            (res.data||[]).forEach(u=>{ if (u.specialty) specs.push(u.specialty); });
+            renderSpecialtyOptions(specs);
 
             // Filter client-side by specialty if chosen
             let doctors = res.data || [];
@@ -165,8 +229,10 @@
 
         document.getElementById('btn-search').addEventListener('click', ()=>{ state.q = document.getElementById('q').value.trim(); state.specialty = document.getElementById('specialty').value; loadDoctors(); });
         document.getElementById('btn-reset').addEventListener('click', ()=>{ state = { q:'', specialty:'' }; document.getElementById('q').value=''; document.getElementById('specialty').value=''; loadDoctors(); });
+        document.getElementById('specialty').addEventListener('change', ()=>{ state.specialty = document.getElementById('specialty').value; });
 
         (async function init(){
+            await loadSpecialtyOptions();
             await loadDoctors();
         })();
 

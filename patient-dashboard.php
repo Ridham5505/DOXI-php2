@@ -246,6 +246,8 @@
         .pill.completed { background: #e0e7ff; color: #3730a3; }
         .pill.scheduled { background: #dcfce7; color: #166534; }
         .pill.active { background: #dcfce7; color: #166534; }
+        .pill.cancelled { background: #fee2e2; color: #b91c1c; }
+        .pill.rescheduled { background: #fef3c7; color: #b45309; }
         .section-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-xl); box-shadow: var(--shadow-md); padding: var(--spacing-6); }
         
         .card-header {
@@ -336,7 +338,7 @@
                 <div class="header-left">
                     <div class="logo" style="display:flex; align-items:center; gap:var(--spacing-2);">
                         <img src="public/assets/doxi-logo.svg?v=2" alt="DOXI" width="120" height="36" style="display:block;">
-                        <span style="color: var(--gray-500); font-weight:600;">Patient Portal</span>
+                        <span style="color: #2563eb; font-weight:700;">Patient Portal</span>
                     </div>
                 </div>
                 <div class="user-info">
@@ -604,7 +606,8 @@ async function fetchUnreadNotifications(){
 
         function getComputedStatus(appt, now){
             const dt = parseDateTime(appt.appt_date, appt.appt_time);
-            if (appt.status === 'cancelled') return 'cancelled';
+            const statusLower = (appt.status || '').toLowerCase();
+            if (statusLower === 'cancelled' || statusLower === 'rescheduled') return statusLower;
             if (!dt) return (appt.status || 'scheduled');
             if (dt < now) return 'completed';
             return appt.status || 'scheduled';
@@ -625,7 +628,10 @@ async function fetchUnreadNotifications(){
                 appt,
                 dt: parseDateTime(appt.appt_date, appt.appt_time)
             }));
-            const future = mapped.filter(item => item.dt && item.dt >= now && item.appt.status !== 'cancelled');
+            const future = mapped.filter(item => {
+                const statusLower = (item.appt.status || '').toLowerCase();
+                return item.dt && item.dt >= now && statusLower !== 'cancelled' && statusLower !== 'rescheduled';
+            });
             const baseList = future.length ? future : mapped;
             const list = baseList
                 .slice()
@@ -644,7 +650,7 @@ async function fetchUnreadNotifications(){
             list.forEach(({appt, dt}) => {
                 const rawStatus = getComputedStatus(appt, now);
                 const normalized = (rawStatus || '').toLowerCase();
-                const knownStatuses = ['scheduled','completed','cancelled','confirmed','active'];
+                const knownStatuses = ['scheduled','completed','cancelled','confirmed','active','rescheduled'];
                 const statusClass = knownStatuses.includes(normalized) ? normalized : 'scheduled';
                 const statusLabel = rawStatus ? `${rawStatus.charAt(0).toUpperCase()}${rawStatus.slice(1)}` : 'Scheduled';
                 const doctorName = escHtml(appt.doctor_name || `Doctor #${appt.doctor_id || '—'}`);

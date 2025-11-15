@@ -1,0 +1,17 @@
+<svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="doxiIconGradient" x1="6" y1="2" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#56A4FF"/>
+            <stop offset="1" stop-color="#1D3FEA"/>
+        </linearGradient>
+        <linearGradient id="doxiTextGradient" x1="55" y1="10" x2="110" y2="30" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#1E54F4"/>
+            <stop offset="1" stop-color="#0F3ABF"/>
+        </linearGradient>
+    </defs>
+    <rect x="2" y="2" width="40" height="36" rx="12" fill="url(#doxiIconGradient)"/>
+    <circle cx="22" cy="20" r="13" stroke="white" stroke-width="2.6"/>
+    <path d="M14.5 20L19.2 24.5L29.5 14" stroke="white" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="52" y="26" fill="url(#doxiTextGradient)" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="20" font-weight="700" letter-spacing="0.12em">DOXI</text>
+</svg>
+

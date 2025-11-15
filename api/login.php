@@ -113,6 +113,12 @@ try {
         echo json_encode(['success' => false, 'message' => 'Invalid credentials. Please check your email and password.']);
         exit;
     }
+    
+    if (isset($user['account_status']) && strtolower((string)$user['account_status']) === 'deleted') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'This account is no longer available. Please contact support for assistance.']);
+        exit;
+    }
 
     // Skip password verification for database users
     $valid = password_verify($password, $user['password'] ?? '');
@@ -133,6 +139,15 @@ try {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'Invalid credentials. Please check your email and password.']);
         exit;
+    }
+    
+    if ($role === 'doctor') {
+        $doctorStatus = isset($user['doctor_status']) ? strtolower($user['doctor_status']) : 'approved';
+        if ($doctorStatus !== 'approved') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Your account is awaiting admin approval. You will be notified once you can log in.']);
+            exit;
+        }
     }
     
     // Remove password from response

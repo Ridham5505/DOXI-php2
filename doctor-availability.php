@@ -133,9 +133,10 @@
         let allDoctors = [];
         let allAppointments = [];
         let availabilityEntries = [];
+const SLOT_INTERVAL_MINUTES = 30;
 
         async function loadDoctors(){
-            const res = await getJSON('api/users.php?role=doctor&page=1&limit=100');
+            const res = await getJSON('api/users.php?role=doctor&doctor_status=approved&page=1&limit=100');
             if (res.success){
                 allDoctors = res.data || [];
                 const sel = document.getElementById('doctor-filter');
@@ -179,7 +180,7 @@
         function generateTimeSlots(){
             const slots = [];
             for (let h = 10; h <= 19; h++){
-                for (let m = 0; m < 60; m += 15){
+                for (let m = 0; m < 60; m += SLOT_INTERVAL_MINUTES){
                     const hh = String(h).padStart(2,'0');
                     const mm = String(m).padStart(2,'0');
                     slots.push(`${hh}:${mm}`);
@@ -213,7 +214,7 @@
                 return a.doctor_id == doctorId && 
                        apptDate === date && 
                        apptTime === time && 
-                       status !== 'cancelled';
+                       status !== 'cancelled' && status !== 'rescheduled';
             });
         }
 
@@ -258,7 +259,7 @@
             if (!availableRanges.length){
                 // Fall back to default clinic hours for display
                 for (let h = 10; h <= 19; h++){
-                    for (let m = 0; m < 60; m += 15){
+                    for (let m = 0; m < 60; m += SLOT_INTERVAL_MINUTES){
                         const time = minutesToString(h*60 + m);
                         if (isSlotPast(date, time)){
                             slottedTimes.set(time, 'past');
@@ -276,7 +277,7 @@
                 let start = toMinutes(range.start_time.substring(0,5));
                 let end = toMinutes(range.end_time.substring(0,5));
                 if (start === null || end === null || start >= end) return;
-                for (let minutes = start; minutes < end; minutes += 15){
+                for (let minutes = start; minutes < end; minutes += SLOT_INTERVAL_MINUTES){
                     const time = minutesToString(minutes);
                     if (isSlotPast(date, time)){
                         slotStatus.set(time, 'past');
@@ -298,7 +299,7 @@
                 let start = toMinutes(range.start_time.substring(0,5));
                 let end = toMinutes(range.end_time.substring(0,5));
                 if (start === null || end === null || start >= end) return;
-                for (let minutes = start; minutes < end; minutes += 15){
+                for (let minutes = start; minutes < end; minutes += SLOT_INTERVAL_MINUTES){
                     const time = minutesToString(minutes);
                     if (isSlotPast(date, time)){
                         slotStatus.set(time, 'past');

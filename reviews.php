@@ -39,7 +39,10 @@
         html, body { margin:0; background: var(--gray-50); color: var(--gray-900); transition: background 0.3s, color 0.3s; }
         body { background: var(--gray-50); }
         .page { max-width: 1100px; margin: 40px auto; padding: 0 var(--spacing-6); }
-        .header { display:flex; align-items:center; justify-content: space-between; margin-bottom: var(--spacing-6); }
+        .header { display:flex; align-items:center; justify-content: space-between; margin-bottom: var(--spacing-6); flex-wrap:wrap; gap:var(--spacing-4); }
+        .header-left{display:flex; flex-direction:column; gap:6px;}
+        .logo{display:flex; align-items:center;}
+        .logo img{display:block;height:48px;width:auto;}
         .card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-xl); box-shadow: var(--shadow-md); padding: var(--spacing-6); margin-bottom: var(--spacing-6); }
         .grid { display:grid; gap: var(--spacing-6); }
         .cols-2 { grid-template-columns: 1fr 1fr; }
@@ -85,8 +88,10 @@
 <body>
     <div class="page">
         <div class="header">
-            <div>
-                <div class="logo"><img src="public/assets/doxi-logo.svg?v=4" alt="DOXI" style="height:52px;width:auto;"></div>
+            <div class="header-left">
+                <div class="logo">
+                    <img src="public/assets/doxi-lockup.svg" alt="DOXI logo" width="120" height="40">
+                </div>
                 <div class="tagline">Review & Rating</div>
             </div>
             <div style="display:flex; align-items:center; gap: var(--spacing-4);">
@@ -164,6 +169,7 @@
 
         let currentPatientId = null;
         let selectedRating = 0;
+        const REVIEW_EDIT_WINDOW_SECONDS = 30 * 60; // 30 minutes
         
         function getJSON(url){ return fetch(url).then(r=>r.json()); }
         function api(path, method='GET', body){
@@ -183,7 +189,7 @@
         async function loadDoctors(){
             const sel = document.getElementById('doctor');
             sel.innerHTML = '<option value="" selected disabled>Loading doctors...</option>';
-            const res = await getJSON('api/users.php?role=doctor&page=1&limit=100');
+            const res = await getJSON('api/users.php?role=doctor&doctor_status=approved&page=1&limit=100');
             sel.innerHTML='<option value="" selected disabled>Select Doctor...</option>';
             if (res.success){
                 res.data.forEach(d=>{
@@ -239,9 +245,34 @@
             });
         }
 
+        function parseDateTime(value){
+            if (!value) return null;
+            const normalized = value.replace(' ', 'T');
+            const timestamp = Date.parse(normalized);
+            return Number.isNaN(timestamp) ? null : timestamp;
+        }
+
+        function getRemainingEditableSeconds(review){
+            if (!review || !review.created_at) return 0;
+            const createdAt = parseDateTime(review.created_at);
+            if (createdAt === null) return 0;
+            const elapsedSeconds = Math.floor((Date.now() - createdAt) / 1000);
+            return Math.max(0, REVIEW_EDIT_WINDOW_SECONDS - elapsedSeconds);
+        }
+
+        function formatCountdown(seconds){
+            const mins = Math.floor(seconds / 60).toString().padStart(2,'0');
+            const secs = Math.floor(seconds % 60).toString().padStart(2,'0');
+            return `${mins}:${secs}`;
+        }
+
+        function isReviewEditable(review){
+            return getRemainingEditableSeconds(review) > 0;
+        }
+
         async function loadMyReviews(){
             if (!currentPatientId) return;
-            const res = await getJSON(`api/reviews.php?limit=100`);
+            const res = await getJSON(`api/reviews.php?patient_id=${currentPatientId}&limit=100`);
             const container = document.getElementById('my-reviews');
             
             if (!res.success || !res.data){
@@ -262,6 +293,10 @@
                 el.className = 'review-item';
                 const date = r.created_at ? new Date(r.created_at).toLocaleDateString() : 'N/A';
                 const stars = '⭐'.repeat(r.rating || 0);
+                const remainingSeconds = getRemainingEditableSeconds(r);
+                const editable = remainingSeconds > 0;
+                const timerText = editable ? `Editable for ${formatCountdown(remainingSeconds)}` : 'Final review';
+                const timerColor = editable ? 'var(--primary-blue)' : 'var(--gray-500)';
                 el.innerHTML = `
                     <div class="review-header">
                         <div class="review-doctor">${esc(r.doctor_name || 'Unknown Doctor')}</div>
@@ -269,10 +304,13 @@
                     </div>
                     <div class="review-rating">Rating: ${stars} (${r.rating}/5)</div>
                     <div class="review-comment">${esc(r.comment || '')}</div>
-                    <div class="actions" style="margin-top: var(--spacing-3);">
-                        <a href="#" class="link" onclick="viewReview(${r.id});return false;">View</a>
-                        <a href="#" class="link" onclick="editReview(${r.id});return false;">Edit</a>
-                        <a href="#" class="link" onclick="deleteReview(${r.id});return false;">Delete</a>
+                    <div style="margin-top: var(--spacing-3); display:flex; align-items:center; justify-content:space-between; gap: var(--spacing-3); flex-wrap:wrap;">
+                        <div class="review-timer" style="font-weight:600; color:${timerColor};">${timerText}</div>
+                        <div class="actions">
+                            <a href="#" class="link" onclick="viewReview(${r.id});return false;">View</a>
+                            ${editable ? `<a href="#" class="link" onclick="editReview(${r.id});return false;">Edit</a>` : ''}
+                            ${editable ? `<a href="#" class="link" onclick="deleteReview(${r.id});return false;">Delete</a>` : ''}
+                        </div>
                     </div>
                 `;
                 container.appendChild(el);
@@ -330,6 +368,11 @@
             const res = await getJSON(`api/reviews.php?id=${id}`);
             if (res.success && res.data){
                 const r = res.data;
+                if (!isReviewEditable(r)){
+                    alert('This review can no longer be edited (30 minutes have passed).');
+                    loadMyReviews();
+                    return;
+                }
                 document.getElementById('review-id').value = r.id;
                 document.getElementById('doctor').value = r.doctor_id;
                 selectedRating = r.rating;
@@ -344,7 +387,7 @@
 
         async function deleteReview(id){
             if (!confirm('Delete this review?')) return;
-            const res = await api('api/reviews.php','DELETE',{ id });
+            const res = await api('api/reviews.php','DELETE',{ id, patient_id: currentPatientId });
             if (res.success){ 
                 loadMyReviews(); 
             } else { 
@@ -363,6 +406,7 @@
             const date = r.created_at ? new Date(r.created_at).toLocaleDateString() : 'N/A';
             const updatedDate = r.updated_at && r.updated_at !== r.created_at ? new Date(r.updated_at).toLocaleDateString() : null;
             const stars = '⭐'.repeat(r.rating || 0);
+            const timerText = isReviewEditable(r) ? `Editable for ${formatCountdown(getRemainingEditableSeconds(r))}` : 'Final review';
             
             modalBody.innerHTML = `
                 <div class="detail-row">
@@ -384,6 +428,10 @@
                 <div class="detail-row">
                     <div class="detail-label">Submitted:</div>
                     <div class="detail-value">${esc(date)}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Edit Window:</div>
+                    <div class="detail-value">${esc(timerText)}</div>
                 </div>
                 ${updatedDate ? `
                 <div class="detail-row">

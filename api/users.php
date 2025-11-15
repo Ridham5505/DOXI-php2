@@ -79,6 +79,10 @@ function handleGet($conn) {
         if (columnExists($conn, 'users', 'years_experience')) { $cols[] = 'years_experience'; }
         if (columnExists($conn, 'users', 'practice_address')) { $cols[] = 'practice_address'; }
         if (columnExists($conn, 'users', 'bio')) { $cols[] = 'bio'; }
+        if (columnExists($conn, 'users', 'doctor_status')) { $cols[] = 'doctor_status'; }
+        if (columnExists($conn, 'users', 'profile_complete')) { $cols[] = 'profile_complete'; }
+        if (columnExists($conn, 'users', 'account_status')) { $cols[] = 'account_status'; }
+        if (columnExists($conn, 'users', 'deleted_at')) { $cols[] = 'deleted_at'; }
         
         $stmt = $conn->prepare("SELECT " . implode(', ', $cols) . " FROM users WHERE id = ?");
         $stmt->bind_param('i', $id);
@@ -97,11 +101,39 @@ function handleGet($conn) {
         return;
     }
 
+    $emailLookup = isset($_GET['email']) ? trim($_GET['email']) : '';
+    if ($emailLookup !== '') {
+        $cols = ['id','first_name','last_name','email','phone','role','date_of_birth','gender','address','last_login','created_at','updated_at'];
+        if (columnExists($conn, 'users', 'specialty')) { $cols[] = 'specialty'; }
+        if (columnExists($conn, 'users', 'license_number')) { $cols[] = 'license_number'; }
+        if (columnExists($conn, 'users', 'years_experience')) { $cols[] = 'years_experience'; }
+        if (columnExists($conn, 'users', 'practice_address')) { $cols[] = 'practice_address'; }
+        if (columnExists($conn, 'users', 'bio')) { $cols[] = 'bio'; }
+        if (columnExists($conn, 'users', 'doctor_status')) { $cols[] = 'doctor_status'; }
+        if (columnExists($conn, 'users', 'account_status')) { $cols[] = 'account_status'; }
+        if (columnExists($conn, 'users', 'deleted_at')) { $cols[] = 'deleted_at'; }
+        $stmt = $conn->prepare("SELECT " . implode(', ', $cols) . " FROM users WHERE email = ? LIMIT 1");
+        $stmt->bind_param('s', $emailLookup);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows === 0) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'User not found']);
+            return;
+        }
+        $user = $result->fetch_assoc();
+        unset($user['password']);
+        echo json_encode(['success' => true, 'data' => $user]);
+        return;
+    }
+
     $role = $_GET['role'] ?? '';
     $search = $_GET['search'] ?? '';
     $page = intval($_GET['page'] ?? 1);
     $limit = intval($_GET['limit'] ?? 10);
     $offset = ($page - 1) * $limit;
+    $includeDeleted = isset($_GET['include_deleted']) && $_GET['include_deleted'] === '1';
+    $accountStatusFilter = $_GET['account_status'] ?? '';
     
     $whereClause = '';
     $params = [];
@@ -111,6 +143,24 @@ function handleGet($conn) {
         $whereClause .= " WHERE role = ?";
         $params[] = $role;
         $types .= 's';
+    }
+    
+    $doctorStatusFilter = $_GET['doctor_status'] ?? '';
+    if ($doctorStatusFilter && columnExists($conn, 'users', 'doctor_status')) {
+        $whereClause .= $whereClause ? " AND" : " WHERE";
+        $whereClause .= " doctor_status = ?";
+        $params[] = $doctorStatusFilter;
+        $types .= 's';
+    }
+
+    if ($accountStatusFilter && columnExists($conn, 'users', 'account_status')) {
+        $whereClause .= $whereClause ? " AND" : " WHERE";
+        $whereClause .= " account_status = ?";
+        $params[] = $accountStatusFilter;
+        $types .= 's';
+    } elseif (!$includeDeleted && columnExists($conn, 'users', 'account_status')) {
+        $whereClause .= $whereClause ? " AND" : " WHERE";
+        $whereClause .= " (account_status IS NULL OR account_status <> 'deleted')";
     }
     
     if ($search) {
@@ -137,6 +187,10 @@ function handleGet($conn) {
     if (columnExists($conn, 'users', 'years_experience')) { $cols[] = 'years_experience'; }
     if (columnExists($conn, 'users', 'practice_address')) { $cols[] = 'practice_address'; }
     if (columnExists($conn, 'users', 'bio')) { $cols[] = 'bio'; }
+    if (columnExists($conn, 'users', 'doctor_status')) { $cols[] = 'doctor_status'; }
+    if (columnExists($conn, 'users', 'profile_complete')) { $cols[] = 'profile_complete'; }
+    if (columnExists($conn, 'users', 'account_status')) { $cols[] = 'account_status'; }
+    if (columnExists($conn, 'users', 'deleted_at')) { $cols[] = 'deleted_at'; }
     $query = "SELECT " . implode(', ', $cols) . " FROM users" . $whereClause . " ORDER BY created_at DESC LIMIT ? OFFSET ?";
     
     $stmt = $conn->prepare($query);
@@ -289,6 +343,9 @@ function handlePut($conn, $input) {
     if (columnExists($conn, 'users', 'years_experience')) { $allowedFields[] = 'years_experience'; }
     if (columnExists($conn, 'users', 'practice_address')) { $allowedFields[] = 'practice_address'; }
     if (columnExists($conn, 'users', 'bio')) { $allowedFields[] = 'bio'; }
+    if (columnExists($conn, 'users', 'doctor_status')) { $allowedFields[] = 'doctor_status'; }
+    if (columnExists($conn, 'users', 'profile_complete')) { $allowedFields[] = 'profile_complete'; }
+    if (columnExists($conn, 'users', 'doctor_status')) { $allowedFields[] = 'doctor_status'; }
     
     // Handle years_experience as integer
     if (isset($input['years_experience']) && $input['years_experience'] !== '') {
@@ -298,10 +355,14 @@ function handlePut($conn, $input) {
     foreach ($allowedFields as $field) {
         if (isset($input[$field])) {
             $fields[] = "$field = ?";
-            // Handle integer types
             if ($field === 'years_experience') {
                 $params[] = intval($input[$field]);
                 $types .= 'i';
+            } elseif ($field === 'doctor_status') {
+                $allowedStatuses = ['pending','approved','rejected'];
+                $statusVal = in_array($input[$field], $allowedStatuses, true) ? $input[$field] : 'pending';
+                $params[] = $statusVal;
+                $types .= 's';
             } else {
                 $params[] = $input[$field];
                 $types .= 's';
@@ -345,8 +406,11 @@ function handleDelete($conn, $input) {
         return;
     }
     
+    $hasAccountStatus = columnExists($conn, 'users', 'account_status');
+    $selectCols = "id, role" . ($hasAccountStatus ? ", account_status" : '');
+    
     // Check if user exists
-    $checkStmt = $conn->prepare("SELECT id, role FROM users WHERE id = ?");
+    $checkStmt = $conn->prepare("SELECT {$selectCols} FROM users WHERE id = ?");
     $checkStmt->bind_param("i", $input['id']);
     $checkStmt->execute();
     $user = $checkStmt->get_result()->fetch_assoc();
@@ -364,9 +428,17 @@ function handleDelete($conn, $input) {
         return;
     }
     
-    // Delete user
-    $deleteStmt = $conn->prepare("DELETE FROM users WHERE id = ?");
-    $deleteStmt->bind_param("i", $input['id']);
+    if ($hasAccountStatus) {
+        if (isset($user['account_status']) && $user['account_status'] === 'deleted') {
+            echo json_encode(['success' => true, 'message' => 'User already removed']);
+            return;
+        }
+        $deleteStmt = $conn->prepare("UPDATE users SET account_status = 'deleted', deleted_at = CURRENT_TIMESTAMP WHERE id = ?");
+        $deleteStmt->bind_param("i", $input['id']);
+    } else {
+        $deleteStmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+        $deleteStmt->bind_param("i", $input['id']);
+    }
     
     if ($deleteStmt->execute()) {
         echo json_encode(['success' => true, 'message' => 'User deleted successfully']);

@@ -399,6 +399,27 @@
             font-weight: 500;
         }
 
+.logo-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.25);
+}
+
+.logo-text {
+    font-weight: 800;
+    font-size: 20px;
+    color: #1d4ed8;
+    letter-spacing: 0.5px;
+}
+
         /* Responsive Design */
         @media (max-width: 900px) {
             .content-wrapper { grid-template-columns: 1fr; }
@@ -407,14 +428,28 @@
     </style>
 </head>
 <body>
+
+    <div id="profileSetupOverlay" style="position:fixed; inset:0; background:rgba(15,23,42,0.55); backdrop-filter:blur(4px); display:none; align-items:center; justify-content:center; z-index:3000;">
+        <div style="background:white; padding:32px; border-radius:24px; width:90%; max-width:420px; text-align:center; box-shadow:0 20px 60px rgba(15,23,42,0.35);">
+            <div style="font-size:42px; margin-bottom:16px;">🛠️</div>
+            <h2 style="margin:0 0 12px 0; color:#111827;">Complete Your Profile</h2>
+            <p style="color:#6b7280; line-height:1.6; margin:0 0 24px 0;">
+                Thanks for registering! Please complete your profile before accessing your dashboard.
+            </p>
+            <button class="btn primary" style="padding:12px 24px;" onclick="window.location.href='doctor-settings.php?setup=1'">
+                Go to Doctor Settings
+            </button>
+        </div>
+    </div>
+
     <div class="dashboard-container">
         <!-- Header -->
         <header class="dashboard-header">
             <div class="header-content">
                 <div class="header-left">
                     <div class="logo" style="display:flex; align-items:center; gap:var(--spacing-2);">
-                        <img src="public/assets/doxi-logo.svg?v=4" alt="DOXI" style="display:block;height:52px;width:auto;">
-                        <span style="color: var(--gray-500); font-weight:600;">Doctor Portal</span>
+                        <img src="public/assets/doxi-logo.svg?v=2" alt="DOXI" width="120" height="36" style="display:block;">
+                        <span style="color: #2563eb; font-weight:700;">Doctor Portal</span>
                     </div>
         </div>
                 <div class="user-info">

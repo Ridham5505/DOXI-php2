@@ -52,6 +52,7 @@
         .pill.scheduled { background:#e0e7ff; color:#3730a3; }
         .pill.completed { background:#dcfce7; color:#166534; }
         .pill.cancelled { background:#fee2e2; color:#991b1b; }
+        .pill.rescheduled { background:#fef3c7; color:#b45309; }
         .empty { padding: var(--spacing-6); text-align:center; color: var(--gray-500); }
         .back { text-decoration:none; color: var(--gray-600); }
         .loading { text-align: center; padding: var(--spacing-6); color: var(--gray-500); }
@@ -194,7 +195,7 @@
                 const tr = document.createElement('tr');
                 const apptDt = new Date(`${a.appt_date}T${(a.appt_time||'00:00').substring(0,5)}:00`);
                 const isPast = !isNaN(apptDt.getTime()) && apptDt < now;
-                const computedStatus = (isPast && a.status !== 'cancelled') ? 'completed' : a.status;
+                const computedStatus = (isPast && a.status !== 'cancelled' && a.status !== 'rescheduled') ? 'completed' : a.status;
                 tr.innerHTML = `
                     <td>${esc(a.appt_date || 'N/A')}</td>
                     <td>${a.appt_time ? esc(a.appt_time.substring(0,5)) : 'N/A'}</td>

@@ -48,6 +48,11 @@ function createTables($pdo) {
         license_number VARCHAR(100) UNIQUE,
         years_experience INT,
         practice_address TEXT,
+        doctor_status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+        profile_complete TINYINT(1) NOT NULL DEFAULT 0,
+        account_status ENUM('active','deleted') NOT NULL DEFAULT 'active',
+        deleted_at TIMESTAMP NULL DEFAULT NULL,
+        approved_at TIMESTAMP NULL DEFAULT NULL,
         last_login TIMESTAMP NULL DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -72,7 +77,14 @@ function createTables($pdo) {
         try { $pdo->exec("DROP TABLE IF EXISTS medical_records"); } catch (PDOException $e) { /* table already removed */ }
         $pdo->exec($usersTable);
         // Ensure last_login exists for tracking patient logins
-        try { $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP NULL DEFAULT NULL"); } catch (PDOException $e) { /* ignore if unsupported or already exists */ }
+        try { $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP NULL DEFAULT NULL"); } catch (PDOException $e) { /* ignore */ }
+        try { $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS doctor_status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending'"); } catch (PDOException $e) { /* ignore */ }
+        try { $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP NULL DEFAULT NULL"); } catch (PDOException $e) { /* ignore */ }
+        try { $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_complete TINYINT(1) NOT NULL DEFAULT 0"); } catch (PDOException $e) { /* ignore */ }
+        try { $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status ENUM('active','deleted') NOT NULL DEFAULT 'active'"); } catch (PDOException $e) { /* ignore */ }
+        try { $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL DEFAULT NULL"); } catch (PDOException $e) { /* ignore */ }
+        try { $pdo->exec("UPDATE users SET doctor_status = 'approved' WHERE role = 'doctor' AND (doctor_status IS NULL OR doctor_status = '')"); } catch (PDOException $e) { /* ignore */ }
+        try { $pdo->exec("UPDATE users SET account_status = 'active' WHERE account_status IS NULL OR account_status = ''"); } catch (PDOException $e) { /* ignore */ }
         $pdo->exec($appointmentsTable);
         
         // Insert default admin if not exists

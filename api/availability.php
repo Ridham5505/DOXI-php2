@@ -18,6 +18,10 @@ if (!$conn) {
     exit();
 }
 
+if (!defined('ADMIN_ALERT_USER_ID')) {
+    define('ADMIN_ALERT_USER_ID', 0);
+}
+
 $conn->query("CREATE TABLE IF NOT EXISTS doctor_availability (
     id INT AUTO_INCREMENT PRIMARY KEY,
     doctor_id INT NOT NULL,
@@ -155,7 +159,7 @@ function cancelConflictingAppointments($conn, $doctorId, $date, $startTime, $end
 {
     list($DATE_COL, $TIME_COL) = getApptColumns($conn);
     $sql = "SELECT id, patient_id, $TIME_COL AS appt_time, status FROM appointments
-            WHERE doctor_id = ? AND $DATE_COL = ? AND status NOT IN ('cancelled', 'completed')";
+            WHERE doctor_id = ? AND $DATE_COL = ? AND status NOT IN ('cancelled', 'completed', 'rescheduled')";
     $stmt = $conn->prepare($sql);
     if (!$stmt) { return []; }
     $stmt->bind_param('is', $doctorId, $date);
@@ -172,17 +176,27 @@ function cancelConflictingAppointments($conn, $doctorId, $date, $startTime, $end
         }
     }
     if (!$affected){ return []; }
-    $cancelStmt = $conn->prepare("UPDATE appointments SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+    $cancelStmt = $conn->prepare("UPDATE appointments SET status = 'rescheduled', updated_at = CURRENT_TIMESTAMP WHERE id = ?");
     $notifStmt = $conn->prepare("INSERT INTO notifications (user_id, title, message, link, is_read) VALUES (?, ?, ?, ?, 0)");
+    $adminNotifStmt = $conn->prepare("INSERT INTO notifications (user_id, title, message, link, is_read) VALUES (?, ?, ?, ?, 0)");
     foreach ($affected as $appt){
         $cancelStmt->bind_param('i', $appt['id']);
         $cancelStmt->execute();
-        $message = "Your appointment with the doctor on {$date} at ".substr($appt['appt_time'],0,5)." has been cancelled because the time is no longer available.";
+        $displayTime = substr($appt['appt_time'], 0, 5);
+        $message = "Your appointment on {$date} at {$displayTime} was cancelled because the doctor is no longer available at that time. Please reschedule your visit.";
         $link = 'book-appointment.php';
         if ($notifStmt){
             $title = 'Appointment Cancelled';
             $notifStmt->bind_param('isss', $appt['patient_id'], $title, $message, $link);
             $notifStmt->execute();
+        }
+        if ($adminNotifStmt){
+            $adminUser = ADMIN_ALERT_USER_ID;
+            $adminTitle = 'Doctor Unavailability Alert';
+            $adminMessage = "Appointment #{$appt['id']} for patient #{$appt['patient_id']} with doctor #{$doctorId} on {$date} at {$displayTime} was auto-marked as rescheduled.";
+            $adminLink = 'admin-dashboard.php#appointments';
+            $adminNotifStmt->bind_param('isss', $adminUser, $adminTitle, $adminMessage, $adminLink);
+            $adminNotifStmt->execute();
         }
     }
     return $affected;

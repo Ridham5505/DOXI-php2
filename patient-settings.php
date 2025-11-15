@@ -70,14 +70,18 @@
         html, body { margin:0; height:100%; background: var(--gray-50); color: var(--gray-900); font-family: Inter, system-ui, Arial, sans-serif; transition: background 0.3s, color 0.3s; }
         body { background: var(--gray-50); }
         .page { max-width: 900px; margin: 40px auto; padding: 0 var(--spacing-6); }
-        .header { display:flex; align-items:center; justify-content: space-between; margin-bottom: var(--spacing-6); }
+        .header { display:flex; align-items:center; justify-content: space-between; margin-bottom: var(--spacing-6); flex-wrap:wrap; gap:var(--spacing-4); }
         .header-right { display:flex; align-items:center; gap: var(--spacing-4); }
-        .logo { font-size: var(--font-size-2xl); font-weight: 800; color: var(--primary-blue); }
-        .logo img{display:block;height:36px;width:auto;}
+        .header-left{display:flex; flex-direction:column; gap:6px;}
+        .logo{display:flex; align-items:center;}
+        .logo img{display:block;height:48px;width:auto;}
         .tagline { color: var(--gray-600); font-size: var(--font-size-sm); font-weight: 500; }
         .theme-toggle { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--gray-200); background: var(--white); color: var(--gray-700); cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: background 0.3s, border-color 0.3s, color 0.3s; }
         .theme-toggle:hover { background: var(--gray-100); }
         .card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-xl); box-shadow: var(--shadow-md); padding: var(--spacing-6); margin-bottom: var(--spacing-6); transition: background 0.3s, border-color 0.3s; }
+        .danger-card{border-color:#fecaca;background:#fef2f2;}
+        .danger-card .section-title{border-color:#fecaca;}
+        .danger-copy{color:#b91c1c;font-weight:600;margin-bottom:var(--spacing-4);}
         .section-title { font-size: var(--font-size-xl); font-weight: 700; color: var(--gray-900); margin-bottom: var(--spacing-4); padding-bottom: var(--spacing-3); border-bottom: 2px solid var(--primary-blue); transition: color 0.3s; }
         .form-grid { display:grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-4); }
         @media(max-width: 700px){ .form-grid{ grid-template-columns: 1fr; } }
@@ -96,6 +100,9 @@
         .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-outline { background: var(--white); color: var(--primary-blue); border: 2px solid var(--primary-blue); }
         .btn-outline:hover { background: var(--primary-blue); color: var(--white); }
+        .btn-danger{background:#dc2626;border:2px solid #dc2626;color:#fff;}
+        .btn-danger:hover{background:#b91c1c;border-color:#b91c1c;}
+        .btn-danger:disabled{opacity:0.65;cursor:not-allowed;}
         .back { text-decoration:none; color: var(--gray-600); transition: color 0.3s; }
         .back:hover { color: var(--gray-900); }
         .view-mode .form-group input, .view-mode .form-group select { background: var(--gray-50); cursor: default; }
@@ -115,8 +122,10 @@
 <body>
     <div class="page">
         <div class="header">
-            <div>
-                <div class="logo"><img src="public/assets/doxi-logo.svg?v=4" alt="DOXI" style="height:52px;width:auto;"></div>
+            <div class="header-left">
+                <div class="logo">
+                    <img src="public/assets/doxi-lockup.svg" alt="DOXI logo" width="120" height="40">
+                </div>
                 <div class="tagline">Settings & Profile</div>
             </div>
             <div class="header-right">
@@ -213,6 +222,15 @@
                     <button type="submit" class="btn btn-primary">Change Password</button>
                 </div>
             </form>
+        </div>
+
+        <!-- Account Controls -->
+        <div class="card danger-card">
+            <h2 class="section-title">Account Control</h2>
+            <p class="danger-copy">Deleting your account will permanently remove your profile, appointments, and records. This action cannot be undone.</p>
+            <div class="btn-row" style="justify-content:flex-start;">
+                <button type="button" class="btn btn-danger" onclick="confirmAccountDeletion()" id="delete-account-btn">Delete My Account</button>
+            </div>
         </div>
     </div>
 
@@ -315,17 +333,23 @@
                 setError('err-last_name', 'Last name is required.', 'last_name');
             }
 
+            const emailPattern = /^[^\s@]+@[A-Za-z0-9.-]+\.com$/i;
             if (!email){
                 valid = false;
                 setError('err-email', 'Email is required.', 'email');
-            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+            } else if (!emailPattern.test(email)){
                 valid = false;
-                setError('err-email', 'Please enter a valid email address.', 'email');
+                setError('err-email', 'Please enter a valid email address ending with .com.', 'email');
             }
 
-            if (phone && !/^[\d\s\-\(\)\+]+$/.test(phone)){
-                valid = false;
-                setError('err-phone', 'Please enter a valid phone number.', 'phone');
+            if (phone){
+                const digitsOnly = phone.replace(/\D/g, '');
+                if (!/^\d{10}$/.test(digitsOnly)){
+                    valid = false;
+                    setError('err-phone', 'Phone number must contain exactly 10 digits.', 'phone');
+                } else {
+                    document.getElementById('phone').value = digitsOnly;
+                }
             }
 
             if (dob){
@@ -439,6 +463,43 @@
             submitBtn.textContent = prev;
         });
 
+        async function confirmAccountDeletion(){
+            if (!currentUserId){
+                alert('User not loaded yet. Please refresh and try again.');
+                return;
+            }
+            const sure = confirm('Are you sure you want to delete your account? This action cannot be undone.');
+            if (!sure) return;
+
+            const btn = document.getElementById('delete-account-btn');
+            const prev = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Deleting...';
+
+            try{
+                const response = await fetch(`api/patients.php?id=${currentUserId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json().catch(()=>({ success:false, message:'Unexpected server response' }));
+
+                if (response.ok && result.success){
+                    alert('Your account has been deleted. We hope to see you again in the future.');
+                    sessionStorage.clear();
+                    try{ localStorage.removeItem('theme'); }catch(_e){}
+                    window.location.href = 'login.php';
+                } else {
+                    alert(result.message || 'Failed to delete account. Please try again.');
+                    btn.disabled = false;
+                    btn.textContent = prev;
+                }
+            }catch(error){
+                console.error('Account deletion error', error);
+                alert('Something went wrong while deleting your account. Please try again later.');
+                btn.disabled = false;
+                btn.textContent = prev;
+            }
+        }
+
         // Theme toggle functionality
         function applyTheme(theme){
             const t = (theme === 'dark') ? 'dark' : 'light';
@@ -482,5 +543,6 @@
             await loadCurrentUser();
         })();
     </script>
+    <script src="public/js/email-phone-validation.js"></script>
 </body>
 </html>

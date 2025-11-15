@@ -299,7 +299,16 @@
         <div class="login-card">
             <div class="login-header">
                 <div class="logo">
-                    <img src="public/assets/doxi-logo.svg?v=4" alt="DOXI Logo" style="height:64px;width:auto;">
+                <span style="display:inline-flex;align-items:center;gap:12px;">
+                    <span style="width:48px;height:48px;border-radius:16px;background:linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(37,99,235,.3);">
+                        <span style="width:28px;height:28px;border-radius:10px;border:2px solid #fff;display:flex;align-items:center;justify-content:center;">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M4 8.5L6.5 11L12 5.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                    </span>
+                    <span style="font-size:32px;font-weight:800;color:#2563eb;letter-spacing:0.6px;">DOXI</span>
+                </span>
                 </div>
                 <div class="tagline">Your Health, Our Priority</div>
             </div>
@@ -432,14 +441,14 @@
         
         // Validation functions
         function validateEmail(email) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const emailRegex = /^[^\s@]+@[A-Za-z0-9.-]+\.com$/i;
             const idRegex = /^\d+$/;
             if (!email || email.trim() === '') {
                 return { valid: false, message: 'Email or ID is required' };
             }
             if (email.includes('@')) {
                 if (!emailRegex.test(email.trim())) {
-                    return { valid: false, message: 'Please enter a valid email address' };
+                    return { valid: false, message: 'Please enter a valid email address ending with .com' };
                 }
             } else if (!idRegex.test(email.trim())) {
                 return { valid: false, message: 'Please enter a valid ID or email address' };
@@ -698,5 +707,6 @@
             window.location.href = `${userRole}-dashboard.php`;
         }
     </script>
+    <script src="public/js/email-phone-validation.js"></script>
 </body>
 </html>

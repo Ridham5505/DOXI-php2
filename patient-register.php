@@ -57,19 +57,19 @@
                 <div class="grid-2">
                     <div class="form-group">
                         <label for="email">Email</label>
-                        <input id="email" type="email" name="email" required>
+                        <input id="email" type="email" name="email" required pattern="^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.com$" title="Email must end with .com">
                         <div class="error-message" id="email-error"></div>
                     </div>
                     <div class="form-group">
                         <label for="phone">Phone</label>
-                        <input id="phone" name="phone" placeholder="e.g., +1 555 123 4567">
+                        <input id="phone" name="phone" required maxlength="10" pattern="^\d{10}$" title="Enter exactly 10 digits">
                         <div class="error-message" id="phone-error"></div>
                     </div>
                 </div>
                 <div class="grid-2">
                     <div class="form-group">
                         <label for="dob">Date of Birth</label>
-                        <input id="dob" type="date" name="dob" required>
+                        <input id="dob" type="date" name="dob" required min="1900-01-01" max="<?php echo date('Y-m-d'); ?>">
                         <div class="error-message" id="dob-error"></div>
                     </div>
                     <div class="form-group">
@@ -137,31 +137,20 @@
         }
         
         function validateEmail(email) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const emailRegex = /^[^\s@]+@[A-Za-z0-9.-]+\.com$/i;
             if (!email || email.trim() === '') {
                 return { valid: false, message: 'Email is required' };
             }
             if (!emailRegex.test(email.trim())) {
-                return { valid: false, message: 'Please enter a valid email address' };
+                return { valid: false, message: 'Please enter a valid email address ending with .com' };
             }
             return { valid: true, message: '' };
         }
         
         function validatePhone(phone) {
-            if (!phone || phone.trim() === '') {
-                return { valid: true, message: '' }; // Phone is optional
-            }
-            // Check if letters or special characters (except +, -, spaces, parentheses, dots) are present
-            if (/[a-zA-Z@#$%^&*!]/.test(phone.trim())) {
-                return { valid: false, message: 'Phone number cannot contain letters or special characters (only numbers, +, -, spaces, parentheses, and dots allowed)' };
-            }
-            // Remove allowed formatting characters and check if only numbers remain
-            const digitsOnly = phone.trim().replace(/[\+\s\-\(\)\.]/g, '');
-            if (!/^\d+$/.test(digitsOnly)) {
-                return { valid: false, message: 'Phone number must contain only digits with optional formatting (+, -, spaces, parentheses, dots)' };
-            }
-            if (digitsOnly.length < 7 || digitsOnly.length > 15) {
-                return { valid: false, message: 'Phone number must be between 7 and 15 digits' };
+            const digitsOnly = (phone || '').trim().replace(/\D/g, '');
+            if (!/^\d{10}$/.test(digitsOnly)) {
+                return { valid: false, message: 'Phone number must contain exactly 10 digits' };
             }
             return { valid: true, message: '' };
         }
@@ -327,28 +316,20 @@
             // Prevent typing letters in phone field
             const phoneInput = document.getElementById('phone');
             if (phoneInput) {
-                phoneInput.addEventListener('input', function(e) {
-                    // Remove letters and invalid special characters in real-time
-                    const originalValue = this.value;
-                    const cleaned = originalValue.replace(/[a-zA-Z@#$%^&*!]/g, '');
-                    if (originalValue !== cleaned) {
-                        this.value = cleaned;
-                        showError('phone', 'Phone number cannot contain letters or invalid characters');
-                        setTimeout(() => {
-                            const result = validatePhone(cleaned);
-                            if (result.valid) {
-                                showValid('phone');
-                            }
-                        }, 100);
+                const handlePhoneValidation = () => {
+                    const digits = phoneInput.value.replace(/\D/g, '').slice(0, 10);
+                    if (phoneInput.value !== digits) {
+                        phoneInput.value = digits;
                     }
-                });
-                phoneInput.addEventListener('keypress', function(e) {
-                    // Only allow numbers, +, -, spaces, parentheses, dots
-                    if (!/[0-9\+\-\(\)\.\s]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-                        e.preventDefault();
-                        showError('phone', 'Only numbers and phone formatting characters allowed');
+                    const result = validatePhone(digits);
+                    if (!result.valid) {
+                        showError('phone', result.message);
+                    } else {
+                        showValid('phone');
                     }
-                });
+                };
+                phoneInput.addEventListener('input', handlePhoneValidation);
+                phoneInput.addEventListener('blur', handlePhoneValidation);
             }
             
             Object.keys(fields).forEach(fieldId => {
@@ -432,6 +413,12 @@
                 const dobInput = document.getElementById('dob');
                 if (dobInput) dobInput.value = normalizedDob;
             }
+
+            if (data.phone){
+                data.phone = data.phone.replace(/\D/g, '').slice(0,10);
+                const phoneInput = document.getElementById('phone');
+                if (phoneInput) phoneInput.value = data.phone;
+            }
              
              // Validate all fields
              const validations = {
@@ -514,6 +501,7 @@
              }
          }
     </script>
+    <script src="public/js/email-phone-validation.js"></script>
 </body>
 </html>
 

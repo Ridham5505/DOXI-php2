@@ -120,9 +120,9 @@
                         <div>
                             <div class="label-row">
                                 <label for="time">Time</label>
-                                <span class="help-inline">Available: 10:00 AM – 7:00 PM</span>
+                                <span class="help-inline">Available:10:00AM – 7:00PM</span>
                             </div>
-                            <input id="time" type="time" required min="10:00" max="19:00" step="900" list="time-slots" />
+                            <input id="time" type="time" required min="10:00" max="19:00" step="1800" list="time-slots" />
                             <datalist id="time-slots"></datalist>
                             <p id="availability-hint" style="margin-top:4px; font-size: var(--font-size-xs); color: var(--gray-500);">Select a doctor and date to view available times.</p>
                             <div id="err-time" class="error"></div>
@@ -138,7 +138,7 @@
                             <label for="status">Status</label>
                             <select id="status">
                                 <option value="scheduled">scheduled</option>
-                                <option value="cancelled">cancelled</option>
+                                <option value="rescheduled">rescheduled</option>
                             </select>
                         </div>
                         <div class="btn-row">
@@ -190,6 +190,12 @@ let currentAvailableSlots = [];
 let currentAvailabilityDoctor = null;
 let currentAvailabilityDate = null;
 let unreadNotificationsFetched = false;
+const SLOT_INTERVAL_MINUTES = 30;
+const INACTIVE_APPT_STATUSES = new Set(['cancelled', 'canceled', 'rescheduled']);
+function isInactiveStatus(status){
+    if (!status) return false;
+    return INACTIVE_APPT_STATUSES.has(status.toLowerCase());
+}
         function getJSON(url){ return fetch(url).then(r=>r.json()); }
         function api(path, method='GET', body){
             return fetch(path, { method, headers:{ 'Content-Type':'application/json' }, body: body ? JSON.stringify(body) : undefined }).then(r=>r.json());
@@ -200,6 +206,7 @@ async function fetchUnreadNotificationsOnce(){
     try{
         const res = await getJSON(`api/notifications.php?user_id=${currentPatientId}&unread=1`);
         if (res.success && res.data && res.data.length){
+            const hasReschedule = res.data.some(n => /reschedule/i.test(n.message || '') || /book-appointment\.php/i.test(n.link || ''));
             const messages = res.data.map(n => `${n.title}\n${n.message}` + (n.link ? `\nLink: ${window.location.origin}/${n.link}` : ''));
             alert(messages.join('\n\n'));
             const ids = res.data.map(n=>n.id);
@@ -208,6 +215,10 @@ async function fetchUnreadNotificationsOnce(){
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ids })
             });
+            if (hasReschedule) {
+                window.location.href = 'book-appointment.php';
+                return;
+            }
         }
         unreadNotificationsFetched = true;
     }catch(e){
@@ -263,6 +274,12 @@ async function fetchUnreadNotificationsOnce(){
                 return;
             }
 
+            if (isSunday(date)){
+                currentAvailableSlots = [];
+                if (hint) hint.textContent = 'Appointments are not available on Sundays. Please choose another date.';
+                return;
+            }
+
             if (hint) hint.textContent = 'Loading availability...';
 
             try{
@@ -278,7 +295,7 @@ async function fetchUnreadNotificationsOnce(){
                 const unavailableRanges = availability.filter(entry => entry.status !== 'available');
                 const bookedTimes = new Set(
                     appointments
-                        .filter(a => (a.status || '').toLowerCase() !== 'cancelled')
+                        .filter(a => !isInactiveStatus(a.status))
                         .map(a => (a.appt_time || '').substring(0,5))
                 );
 
@@ -287,13 +304,16 @@ async function fetchUnreadNotificationsOnce(){
                 const now = new Date();
                 const todayStr = now.toISOString().slice(0,10);
                 const isToday = date === todayStr;
-                const minTodayMinutes = Math.max(clinicStartMinutes, Math.ceil((now.getHours() * 60 + now.getMinutes()) / 15) * 15);
+                const minTodayMinutes = Math.max(
+                    clinicStartMinutes,
+                    Math.ceil((now.getHours() * 60 + now.getMinutes()) / SLOT_INTERVAL_MINUTES) * SLOT_INTERVAL_MINUTES
+                );
                 const slotSet = new Set();
                 availableRanges.forEach(range => {
                     let start = toMinutes((range.start_time || '').substring(0,5));
                     let end = toMinutes((range.end_time || '').substring(0,5));
                     if (start === null || end === null || start >= end) return;
-                    for (let minutes = start; minutes < end; minutes += 15){
+                    for (let minutes = start; minutes < end; minutes += SLOT_INTERVAL_MINUTES){
                         const timeValue = minutesToTime(minutes);
                         if (minutesInRanges(minutes, unavailableRanges)) continue;
                         if (bookedTimes.has(timeValue)) continue;
@@ -316,7 +336,7 @@ async function fetchUnreadNotificationsOnce(){
 
                 if (!finalSlots.length){
                     usedFallback = true;
-                    for (let minutes = clinicStartMinutes; minutes <= clinicEndMinutes; minutes += 15){
+                    for (let minutes = clinicStartMinutes; minutes <= clinicEndMinutes; minutes += SLOT_INTERVAL_MINUTES){
                         if (isToday && minutes < minTodayMinutes) continue;
                         const timeValue = minutesToTime(minutes);
                         if (bookedTimes.has(timeValue)) continue;
@@ -380,13 +400,26 @@ async function fetchUnreadNotificationsOnce(){
             const now = new Date();
             const minutesFromMidnight = now.getHours()*60 + now.getMinutes();
             const start = 10*60, end = 19*60; // inclusive end allows 19:00
-            let slotMinutes = Math.ceil(minutesFromMidnight/15)*15; // round up to next 15 min
+            let slotMinutes = Math.ceil(minutesFromMidnight / SLOT_INTERVAL_MINUTES) * SLOT_INTERVAL_MINUTES; // round up to next slot
             if (slotMinutes < start) slotMinutes = start;
             if (slotMinutes > end) slotMinutes = end; // clamp to 19:00 if late
             input.value = minutesToTime(slotMinutes);
         }
 
         function ymd(d){ const yy=d.getFullYear(); const mm=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${yy}-${mm}-${dd}`; }
+
+        function parseDateFromInput(value){
+            if (!value) return null;
+            const parts = value.split('-').map(Number);
+            if (parts.length !== 3 || parts.some(num => Number.isNaN(num))) return null;
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+
+        function isSunday(dateString){
+            const parsed = parseDateFromInput(dateString);
+            if (!parsed) return false;
+            return parsed.getDay() === 0;
+        }
 
         function setDateConstraints(){
             const input = document.getElementById('date');
@@ -395,7 +428,13 @@ async function fetchUnreadNotificationsOnce(){
             const max = new Date(today.getTime() + 180*24*60*60*1000); // next 6 months
             input.min = ymd(today);
             input.max = ymd(max);
-            if (!input.value) input.value = ymd(today);
+            if (!input.value){
+                const defaultDate = new Date(today);
+                while (defaultDate.getDay() === 0){
+                    defaultDate.setDate(defaultDate.getDate() + 1);
+                }
+                input.value = ymd(defaultDate);
+            }
             validateDateField();
         }
 
@@ -409,6 +448,7 @@ async function fetchUnreadNotificationsOnce(){
             if (!val){ msg = 'Please choose a date.'; }
             else if (min && val < min){ msg = 'Please select a valid date (today or later).'; }
             else if (max && val > max){ msg = 'Please select a date within the next 6 months.'; }
+            else if (isSunday(val)){ msg = 'Appointments are not available on Sundays. Please choose another date.'; }
             document.getElementById(errId).textContent = msg;
             input.classList.toggle('invalid', !!msg);
             input.setCustomValidity(msg);
@@ -446,7 +486,7 @@ async function fetchUnreadNotificationsOnce(){
         async function loadDoctors(){
             const sel = document.getElementById('doctor');
             sel.innerHTML = '<option value="">Loading doctors...</option>';
-            const res = await getJSON('api/users.php?role=doctor&page=1&limit=100');
+            const res = await getJSON('api/users.php?role=doctor&doctor_status=approved&page=1&limit=100');
             sel.innerHTML='<option value="" selected disabled>Select Doctor...</option>';
             if (res.success){
                 res.data.forEach(d=>{
@@ -477,14 +517,15 @@ async function fetchUnreadNotificationsOnce(){
                 if (filter === 'upcoming'){
                     filteredData = filteredData.filter(a=>{
                         const apptDt = new Date(`${a.appt_date}T${(a.appt_time||'00:00').substring(0,5)}:00`);
-                        return !isNaN(apptDt.getTime()) && apptDt >= now && (a.status !== 'cancelled' && a.status !== 'completed');
+                        const statusLower = (a.status || '').toLowerCase();
+                        return !isNaN(apptDt.getTime()) && apptDt >= now && !isInactiveStatus(statusLower) && statusLower !== 'completed';
                     });
                 }
                 
                 filteredData.forEach(async a=>{
                     const apptDt = new Date(`${a.appt_date}T${(a.appt_time||'00:00').substring(0,5)}:00`);
                     const isPast = !isNaN(apptDt.getTime()) && apptDt < now;
-                    const computedStatus = (isPast && a.status !== 'cancelled') ? 'completed' : a.status;
+                    const computedStatus = (isPast && !isInactiveStatus(a.status)) ? 'completed' : a.status;
                     if (computedStatus === 'completed' && a.status !== 'completed'){
                         try { await api('api/appointments.php','PUT',{ id:a.id, status:'completed' }); a.status='completed'; } catch(e){}
                     }
@@ -530,7 +571,10 @@ async function fetchUnreadNotificationsOnce(){
                 document.getElementById('date').value = a.appt_date;
                 await refreshTimeSlots((a.appt_time || '').substring(0,5));
                 document.getElementById('notes').value = a.notes || '';
-                document.getElementById('status').value = a.status || 'scheduled';
+                const statusSelect = document.getElementById('status');
+                const allowedStatuses = ['scheduled','rescheduled'];
+                const incomingStatus = (a.status || '').toLowerCase();
+                statusSelect.value = allowedStatuses.includes(incomingStatus) ? incomingStatus : 'scheduled';
                 document.getElementById('submit-btn').textContent = 'Update Appointment';
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
@@ -556,7 +600,7 @@ async function fetchUnreadNotificationsOnce(){
             const modalBody = document.getElementById('modal-body');
             const apptDt = new Date(`${a.appt_date}T${(a.appt_time||'00:00').substring(0,5)}:00`);
             const isPast = !isNaN(apptDt.getTime()) && apptDt < new Date();
-            const computedStatus = (isPast && a.status !== 'cancelled') ? 'completed' : a.status;
+            const computedStatus = (isPast && !isInactiveStatus(a.status)) ? 'completed' : a.status;
             
             modalBody.innerHTML = `
                 <div class="detail-row">
@@ -613,7 +657,11 @@ async function fetchUnreadNotificationsOnce(){
             return minutes >= start && minutes <= end;
         }
 
-        function isQuarterHour(t){ if (!t) return false; const m = parseInt(t.split(':')[1]||'0',10); return m % 15 === 0; }
+        function isValidSlotInterval(t){
+            if (!t) return false;
+            const m = parseInt(t.split(':')[1] || '0', 10);
+            return m % SLOT_INTERVAL_MINUTES === 0;
+        }
 
         function setError(id, message, inputId){
             const el = document.getElementById(id);
@@ -644,11 +692,12 @@ async function fetchUnreadNotificationsOnce(){
                 const d = new Date(dateStr + 'T00:00:00');
                 if (isNaN(d.getTime())){ valid = false; setError('err-date','Invalid date.','date'); }
                 else if (d < today){ valid = false; setError('err-date','Date cannot be in the past.','date'); }
+                else if (isSunday(dateStr)){ valid = false; setError('err-date','Appointments are not available on Sundays.','date'); }
             }
 
             if (!timeStr){ valid = false; setError('err-time','Please select a time.','time'); }
             else if (!isTimeInWindow(timeStr)){ valid = false; setError('err-time','Time must be between 10:00 and 19:00.','time'); }
-            else if (!isQuarterHour(timeStr)){ valid = false; setError('err-time','Time must be in 15-minute steps (00, 15, 30, 45).','time'); }
+            else if (!isValidSlotInterval(timeStr)){ valid = false; setError('err-time','Time must be in 30-minute steps (:00 or :30).','time'); }
 
             // Validate notes: required, no numbers, proper description
             if (!notes || notes.trim().length === 0){ 
@@ -676,7 +725,7 @@ async function fetchUnreadNotificationsOnce(){
                     const nowMinutes = now.getHours()*60 + now.getMinutes();
                     const [hh,mm] = timeStr.split(':').map(Number);
                     const tMinutes = hh*60 + mm;
-                    const minAllowed = Math.ceil(nowMinutes/15)*15; // next quarter hour
+                    const minAllowed = Math.ceil(nowMinutes / SLOT_INTERVAL_MINUTES) * SLOT_INTERVAL_MINUTES; // next half-hour slot
                     if (tMinutes < minAllowed){
                         valid = false;
                         setError('err-time', 'Time must be later than the current time.', 'time');
@@ -693,8 +742,9 @@ async function fetchUnreadNotificationsOnce(){
                 if (res.success && res.data){
                     const conflict = res.data.find(a=>{
                         if (excludeApptId && a.id === excludeApptId) return false; // Exclude current appointment if editing
+                        const statusLower = (a.status || '').toLowerCase();
                         return a.appt_date === date && a.appt_time.substring(0,5) === time.substring(0,5) && 
-                               (a.status !== 'cancelled' && a.status !== 'completed');
+                               !isInactiveStatus(statusLower) && statusLower !== 'completed';
                     });
                     return !!conflict;
                 }

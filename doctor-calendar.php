@@ -60,27 +60,32 @@
         .calendar-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--spacing-4);} 
         .calendar-title{font-size:var(--font-size-2xl);font-weight:700;margin:0;} 
         .calendar-sub{color:var(--gray-500);margin-top:4px;} 
-        .calendar-controls{display:flex;align-items:center;gap:var(--spacing-6);} 
+        .calendar-controls{display:flex;align-items:center;gap:var(--spacing-6);flex-wrap:wrap;} 
         .month-display{font-weight:700;font-size:var(--font-size-lg);} 
         .nav-buttons{display:flex;gap:10px;} 
         .nav-btn{width:34px;height:34px;border:1px solid var(--gray-300);border-radius:12px;background:var(--white);cursor:pointer;display:grid;place-items:center;font-size:18px;font-weight:700;color:var(--gray-600);} 
         .nav-btn:hover{background:var(--gray-100);} 
+        .full-day-btn{padding:10px 16px;border-radius:999px;border:none;background:#2563eb;color:#fff;font-weight:600;cursor:pointer;transition:background .2s,opacity .2s;box-shadow:0 6px 18px rgba(37,99,235,0.25);}
+        .full-day-btn:hover{background:#1d4ed8;}
+        .full-day-btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;}
         .weekday-row{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;text-align:center;font-size:var(--font-size-sm);color:var(--gray-500);font-weight:600;} 
         .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;} 
         .day-card{border:1px solid var(--gray-200);border-radius:18px;padding:12px 14px;background:var(--white);min-height:110px;display:flex;flex-direction:column;gap:10px;transition:box-shadow .2s;cursor:pointer;} 
+        .day-card.sun-highlight{background:#fee2e2;border-color:#fca5a5;}
         .day-card:hover{box-shadow:var(--shadow-sm);} 
-        .day-card.disabled{background:var(--gray-100);color:var(--gray-400);cursor:not-allowed;box-shadow:none;} 
+        .day-card.disabled{background:var(--gray-200);color:var(--gray-500);cursor:not-allowed;box-shadow:none;} 
         .day-card.today{border:2px solid var(--primary-blue);} 
         .day-number{font-weight:700;font-size:var(--font-size-lg);} 
         .chip-row{display:flex;flex-wrap:wrap;gap:6px;} 
         .chip{padding:4px 10px;border-radius:999px;font-size:var(--font-size-xs);font-weight:600;} 
+        .chip-sunday{background:#fee2e2;color:#b91c1c;}
         .chip-available{background:#dcfce7;color:#166534;} 
         .chip-booked{background:#fee2e2;color:#991b1b;} 
         .chip-unavailable{background:#ede9fe;color:#5b21b6;} 
         .chip-none{background:var(--gray-200);color:var(--gray-600);} 
         .legend{display:flex;gap:12px;flex-wrap:wrap;} 
         .legend .chip{padding:6px 12px;} 
-        .detail-panel{background:var(--white);border:1px solid var(--gray-200);border-radius:24px;padding:var(--spacing-6);box-shadow:var(--shadow-sm);display:grid;gap:var(--spacing-4);} 
+        .detail-panel{display:none !important;}
         .detail-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--spacing-4);} 
         .detail-date{font-size:var(--font-size-xl);font-weight:700;margin:0;} 
         .detail-summary{color:var(--gray-500);} 
@@ -143,6 +148,7 @@
                         <button class="nav-btn" id="prev-month" aria-label="Previous month">←</button>
                         <button class="nav-btn" id="next-month" aria-label="Next month">→</button>
                     </div>
+                    <button class="full-day-btn" id="mark-unavailable-day" disabled>Mark Day Unavailable</button>
                 </div>
             </div>
 
@@ -213,15 +219,20 @@
         const detailDate = document.getElementById('detail-date');
         const detailSummary = document.getElementById('detail-summary');
         const detailContent = document.getElementById('detail-content');
+        const markUnavailableBtn = document.getElementById('mark-unavailable-day');
 
         const weekdayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-        weekdayRow.innerHTML = weekdayNames.map(name=>`<div>${name}</div>`).join('');
+        weekdayRow.innerHTML = weekdayNames.map((name,index)=> {
+            const sundayStyle = index === 0 ? 'style="color:#dc2626;font-weight:700;"' : '';
+            return `<div ${sundayStyle}>${name}</div>`;
+        }).join('');
 
         let monthCursor = new Date();
         monthCursor.setDate(1);
         let appointments = [];
         let availability = [];
         let selectedDateKey = null;
+        updateFullDayButton(null);
 
         async function loadData(){
             try{
@@ -289,6 +300,7 @@
 
                 const cell = document.createElement('div');
                 cell.className = 'day-card';
+                if (dateObj.getDay() === 0) cell.classList.add('sun-highlight');
                 if (dateObj.getTime() === today.getTime()) cell.classList.add('today');
                 const isPast = dateObj < today;
                 if (isPast) cell.classList.add('disabled');
@@ -298,17 +310,19 @@
                 dayNum.textContent = day;
                 cell.appendChild(dayNum);
 
+                if (isPast){
+                    calendarGrid.appendChild(cell);
+                    continue;
+                }
+
                 const chips = document.createElement('div');
                 chips.className = 'chip-row';
                 if (data.availableSlots.length) chips.appendChild(makeChip(`${data.availableSlots.length} available`, 'chip-available'));
                 if (data.appts.length) chips.appendChild(makeChip(`${data.appts.length} booked`, 'chip-booked'));
                 if (data.unavailableSlots.length) chips.appendChild(makeChip(`${data.unavailableSlots.length} unavailable`, 'chip-unavailable'));
-                if (!chips.children.length) chips.appendChild(makeChip('No schedule', 'chip-none'));
-                cell.appendChild(chips);
+                if (chips.children.length) cell.appendChild(chips);
 
-                if (!isPast){
-                    cell.addEventListener('click', ()=>showDayDetail(dateObj, data.appts, data.availableSlots, data.unavailableSlots));
-                }
+                cell.addEventListener('click', ()=>showDayDetail(dateObj, data.appts, data.availableSlots, data.unavailableSlots));
 
                 calendarGrid.appendChild(cell);
             }
@@ -330,6 +344,7 @@
             if (appts.length) summary.push(`${appts.length} appointment${appts.length===1?'':'s'}`);
             detailSummary.textContent = summary.length ? summary.join(' • ') : 'No schedule for this day.';
             document.getElementById('btn-add-availability').disabled = false;
+            updateFullDayButton(dateObj);
 
             const columns = [];
             if (availableSlots.length){
@@ -358,6 +373,19 @@
                 columns.push(col.join(''));
             }
             detailContent.innerHTML = columns.length ? columns.join('') : '<div class="empty-state">No availability or appointments recorded for this day.</div>';
+        }
+
+        function updateFullDayButton(dateObj){
+            if (!markUnavailableBtn) return;
+            if (!dateObj){
+                markUnavailableBtn.disabled = false;
+                markUnavailableBtn.title = 'Select a date and click to mark it unavailable';
+                return;
+            }
+            const today = new Date(); today.setHours(0,0,0,0);
+            const isPast = dateObj < today;
+            markUnavailableBtn.disabled = isPast;
+            markUnavailableBtn.title = isPast ? 'Cannot mark past dates' : '';
         }
 
         function renderAvailabilityRow(slot, isUnavailable=false){
@@ -467,6 +495,50 @@
             monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth()+1, 1);
             renderCalendar();
         });
+        if (markUnavailableBtn){
+            markUnavailableBtn.addEventListener('click', async ()=>{
+                if (!selectedDateKey){
+                    alert('Please select a date on the calendar first.');
+                    return;
+                }
+                const dateObj = parseDateKey(selectedDateKey);
+                const today = new Date(); today.setHours(0,0,0,0);
+                if (dateObj < today){
+                    alert('Past dates cannot be modified.');
+                    return;
+                }
+                const niceDate = dateObj.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+                if (!confirm(`Mark ${niceDate} as unavailable for the entire day? This will cancel all appointments booked on this date.`)) return;
+                const payload = {
+                    doctor_id: doctorId,
+                    availability_date: selectedDateKey,
+                    start_time: '00:00',
+                    end_time: '23:59',
+                    status: 'unavailable',
+                    notes: 'Full day unavailable'
+                };
+                try{
+                    markUnavailableBtn.disabled = true;
+                    markUnavailableBtn.textContent = 'Updating...';
+                    const res = await fetch('api/availability.php', {
+                        method:'POST',
+                        headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify(payload)
+                    });
+                    const json = await res.json();
+                    if (!json.success) throw new Error(json.message||'Unable to update availability.');
+                    await loadData();
+                    alert('Marked as unavailable for the entire day.');
+                }catch(err){
+                    console.error(err);
+                    alert(err.message || 'Failed to mark the day unavailable.');
+                }finally{
+                    markUnavailableBtn.textContent = 'Mark Day Unavailable';
+                    const selectedObj = selectedDateKey ? parseDateKey(selectedDateKey) : null;
+                    updateFullDayButton(selectedObj);
+                }
+            });
+        }
 
         function applyTheme(theme){
             const t = (theme === 'dark') ? 'dark' : 'light';

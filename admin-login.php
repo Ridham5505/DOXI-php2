@@ -164,7 +164,16 @@
         <div class="admin-login-card">
             <div class="admin-header">
                 <div class="logo">
-                    <img src="public/assets/doxi-logo.svg?v=4" alt="DOXI Logo" style="height:64px;width:auto;">
+                    <span style="display:inline-flex;align-items:center;gap:12px;">
+                        <span style="width:48px;height:48px;border-radius:16px;background:linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(37,99,235,.3);">
+                            <span style="width:28px;height:28px;border-radius:10px;border:2px solid #fff;display:flex;align-items:center;justify-content:center;">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M4 8.5L6.5 11L12 5.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                        </span>
+                        <span style="font-size:32px;font-weight:800;color:#2563eb;letter-spacing:0.6px;">DOXI</span>
+                    </span>
                 </div>
                 <div class="tagline">Your Health, Our Priority</div>
                 <div class="admin-badge">🔒 ADMIN ACCESS</div>
@@ -290,7 +299,7 @@
             }
         });
         
-        function handleAdminLogin(event) {
+        async function handleAdminLogin(event) {
             event.preventDefault();
             
             const formData = new FormData(event.target);
@@ -321,38 +330,48 @@
                 return;
             }
             
-            // Admin authentication
-            if (authenticateAdmin(username, password)) {
-                // Store admin session
+            const loginBtn = document.querySelector('.admin-login-btn');
+            const prevLabel = loginBtn ? loginBtn.textContent : '';
+            if (loginBtn){ loginBtn.disabled = true; loginBtn.textContent = 'Authenticating...'; }
+
+            try{
+                const result = await authenticateAdmin(username, password);
+                
+                const user = result.user || {};
                 sessionStorage.setItem('userRole', 'admin');
-                sessionStorage.setItem('userEmail', username);
+                sessionStorage.setItem('userEmail', user.email || username);
+                sessionStorage.setItem('userId', user.id || '');
                 sessionStorage.setItem('isLoggedIn', 'true');
                 sessionStorage.setItem('adminAccess', 'true');
                 
-                // Log admin access to system logs (fire-and-forget)
-                try{ fetch('api/logs.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ level:'INFO', message:'admin login success', user_email: username }) }); }catch(_e){}
+                try{ fetch('api/logs.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ level:'INFO', message:'admin login success', user_email: user.email || username }) }); }catch(_e){}
                 
-                // Redirect to admin dashboard
                 window.location.href = 'admin-dashboard.php';
-            } else {
-                alert('Invalid admin credentials. Access denied.');
-                // Log failed attempt
+            } catch(error){
+                const message = error?.message || 'Invalid admin credentials. Access denied.';
+                alert(message);
                 try{ fetch('api/logs.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ level:'WARN', message:'admin login failed', user_email: username }) }); }catch(_e){}
+            } finally {
+                if (loginBtn){ loginBtn.disabled = false; loginBtn.textContent = prevLabel || '🔐 Login as Administrator'; }
             }
         }
         
-        function authenticateAdmin(username, password) {
-            // Admin credentials (in real app, this would be server-side)
-            const adminCredentials = [
-                { username: 'admin@doxi.com', password: 'admin123' },
-                { username: 'administrator', password: 'adminpass' },
-                { username: 'superadmin', password: 'superpass123' },
-                { username: 'doxi_admin', password: 'doxi2024' }
-            ];
-            
-            return adminCredentials.some(cred => 
-                cred.username === username && cred.password === password
-            );
+        async function authenticateAdmin(username, password) {
+            const payload = {
+                email: username,
+                password,
+                role: 'admin'
+            };
+            const response = await fetch('api/login.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json().catch(()=>null);
+            if (!response.ok || !data || !data.success){
+                throw new Error((data && data.message) ? data.message : 'Invalid admin credentials. Access denied.');
+            }
+            return data;
         }
         
         // Auto-focus on username field

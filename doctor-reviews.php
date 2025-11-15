@@ -272,14 +272,6 @@
             background: #BFDBFE;
         }
 
-        .btn-delete {
-            background: #FEE2E2;
-            color: #991B1B;
-        }
-
-        .btn-delete:hover {
-            background: #FECACA;
-        }
 
         /* Empty State */
         .empty-state {
@@ -1048,7 +1040,6 @@
                         <td>
                             <div class="action-buttons">
                                 <button class="btn-action btn-view" onclick="viewReview(${reviewId})">View</button>
-                                <button class="btn-action btn-delete" onclick="showDeleteConfirmation(${reviewId})">Delete</button>
                             </div>
                         </td>
                     </tr>

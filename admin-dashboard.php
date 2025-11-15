@@ -118,6 +118,18 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
         /* Bottom row */
         .bottom-grid{display:grid; grid-template-columns: 2fr 1fr; gap:16px}
         @media(max-width: 900px){ .bottom-grid{grid-template-columns:1fr} }
+        .status-pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;text-transform:capitalize;}
+        .status-pill.approved{background:#dcfce7;color:#166534;}
+        .status-pill.pending{background:#fef3c7;color:#b45309;}
+        .status-pill.rejected{background:#fee2e2;color:#b91c1c;}
+        .status-pill.deleted{background:#fee2e2;color:#991b1b;}
+        .pending-btn{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:10px;border:1px solid var(--gray-200);background:var(--white);font-weight:600;cursor:pointer;}
+        .pending-btn .badge{padding:2px 8px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:12px;font-weight:700;}
+        #pendingDoctorsList .alert-item{padding:12px;border-radius:12px;border:1px solid var(--gray-200);background:var(--gray-50);margin-bottom:12px;}
+        #pendingDoctorsList .alert-item-title{font-weight:700;color:var(--gray-900);}
+        #pendingDoctorsList .alert-item-message{font-size:13px;color:var(--gray-600);margin-top:4px;}
+        .alert-empty{padding:16px;border:1px dashed var(--gray-200);border-radius:12px;text-align:center;color:var(--gray-500);font-size:14px;}
+        .alert-actions{display:flex;gap:8px;}
         .review-item{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--gray-200)}
         .review-item:last-child{border-bottom:none}
         .review-left{display:flex; align-items:center; gap:10px}
@@ -369,7 +381,8 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
         .settings-card p{margin:0;color:var(--gray-500);line-height:1.6;}
         .settings-profile-summary{display:flex;flex-direction:column;gap:20px;}
         .profile-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;}
-        .profile-meta-card{background:var(--white);border:1px solid var(--gray-200);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:6px;}
+        .profile-meta-card{background:var(--white);border:1px solid var(--gray-200);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:6px;cursor:pointer;transition:border-color .2s, box-shadow .2s;}
+        .profile-meta-card:hover{border-color:#2563eb;box-shadow:0 4px 20px rgba(37,99,235,0.15);}
         .profile-meta-label{font-size:12px;letter-spacing:0.05em;text-transform:uppercase;color:var(--gray-500);font-weight:600;}
         .profile-meta-value{font-size:16px;font-weight:700;color:var(--gray-900);} 
         .profile-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
@@ -409,11 +422,12 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             <div class="header-inner">
                 <div class="brand">
                     <div class="logo" aria-label="DOXI logo">
-                        <img src="public/assets/doxi-logo.svg?v=2" alt="DOXI Logo" width="120" height="36">
+                        <img src="public/assets/doxi-logo.svg?v=2" alt="DOXI Logo" width="120" height="36" style="display:block;">
                     </div>
                     <div class="brand-title"></div>
                 </div>
                 <div class="userbar">
+                    <button class="pending-btn" id="pendingDoctorsBtnHeader" type="button" style="margin-right:12px;">Pending Approvals <span class="badge" id="pendingDoctorsBadgeHeader">0</span></button>
                     <div class="header-theme-toggle" role="group" aria-label="Theme toggle">
                         <label class="theme-pill" id="headerThemeLight">
                             <input type="radio" name="themeChoice" value="light">
@@ -452,7 +466,7 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
 
                     <div class="kpi-grid">
                         <div class="kpi red" onclick="setSection('patients')" title="Click to view Patient Management"><div class="icon">🧑</div><div class="meta"><div class="lbl">Total Patients</div><div class="val" id="kpiPatients">0</div></div></div>
-                        <div class="kpi yellow" onclick="setSection('doctors')" title="Click to view Doctors"><div class="icon">🧑‍⚕️</div><div class="meta"><div class="lbl">Staff Members</div><div class="val" id="kpiStaff">0</div></div></div>
+                        <div class="kpi yellow" onclick="setSection('doctors')" title="Click to view Doctors"><div class="icon">🧑‍⚕️</div><div class="meta"><div class="lbl">Total Doctors</div><div class="val" id="kpiStaff">0</div></div></div>
                         <div class="kpi blue" onclick="setSection('appointments')" title="Click to view Appointments"><div class="icon">📅</div><div class="meta"><div class="lbl">Appointments</div><div class="val" id="kpiAppts">0</div></div></div>
                     </div>
 
@@ -500,7 +514,12 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                     <div class="card">
                         <div class="filters">
                             <input placeholder="Search patients" id="searchPatients">
-                            <select id="sortPatients"><option value="name">Sort by Name</option><option value="email">Email</option></select>
+                            <select id="sortPatients">
+                                <option value="name">Sort by Name</option>
+                                <option value="email">Sort by Email</option>
+                                <option value="phone">Sort by Phone</option>
+                                <option value="last_login">Sort by Last Login</option>
+                            </select>
                             <button class="btn primary" id="addPatient">+ Add Patient</button>
                         </div>
                         <table class="table" id="patientsTable">
@@ -586,7 +605,12 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                     <div class="card">
                         <div class="filters">
                             <input placeholder="Search doctors" id="searchDoctors">
-                            <select id="sortDoctors"><option value="name">Sort by Name</option><option value="email">Email</option></select>
+                            <select id="sortDoctors">
+                                <option value="name">Sort by Name</option>
+                                <option value="email">Sort by Email</option>
+                                <option value="phone">Sort by Phone</option>
+                                <option value="specialty">Sort by Specialty</option>
+                            </select>
                             <button class="btn primary" id="addDoctor">+ Add Doctor</button>
                         </div>
                          <table class="table" id="doctorsTable">
@@ -679,6 +703,16 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                                 <button type="submit" class="btn primary">Save</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+
+                <div id="pendingDoctorsModal" class="modal-overlay" style="display:none;">
+                    <div class="modal-panel" style="max-width:600px;">
+                        <h2 style="margin-top:0;">Pending Doctor Approvals</h2>
+                        <div id="pendingDoctorsList" style="max-height:360px; overflow-y:auto; margin-top:12px;"></div>
+                        <div class="modal-actions" style="justify-content:flex-end;">
+                            <button class="btn" type="button" onclick="closePendingDoctorsModal()">Close</button>
+                        </div>
                     </div>
                 </div>
 
@@ -830,6 +864,10 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                                 <span>Booked</span>
                             </div>
                             <div style="display:flex; align-items:center; gap:8px;">
+                                <div style="width:20px; height:20px; border-radius:6px; background:#ede9fe; border:2px solid #c4b5fd;"></div>
+                                <span>Unavailable</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
                                 <div style="width:20px; height:20px; border-radius:6px; background:var(--gray-200); border:2px solid var(--gray-300);"></div>
                                 <span>Past Time</span>
                             </div>
@@ -930,15 +968,15 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                                     </div>
                                     <div class="settings-profile-summary">
                                         <div class="profile-meta-grid">
-                                            <div class="profile-meta-card">
+                                            <div class="profile-meta-card" id="editNameCard">
                                                 <span class="profile-meta-label">Name</span>
                                                 <span class="profile-meta-value" id="adminProfileName">Administrator</span>
                                             </div>
-                                            <div class="profile-meta-card">
+                                            <div class="profile-meta-card" id="editEmailCard">
                                                 <span class="profile-meta-label">Email</span>
                                                 <span class="profile-meta-value" id="adminProfileEmail">admin@doxi.com</span>
                                             </div>
-                                            <div class="profile-meta-card">
+                                            <div class="profile-meta-card" id="editRoleCard">
                                                 <span class="profile-meta-label">Role</span>
                                                 <span class="profile-meta-value">System Admin</span>
                                             </div>
@@ -949,6 +987,8 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                                         </div>
                                         <div class="profile-actions">
                                             <button class="btn" type="button" onclick="refreshAdminProfile()">Refresh Profile</button>
+                                            <button class="btn primary" type="button" id="openChangeEmailBtn">Change Email</button>
+                                            <button class="btn primary" type="button" id="openChangePasswordBtn" style="background:#4338ca; border-color:#4338ca; color:#fff;">Change Password</button>
                                             <span class="settings-status" id="adminProfileStatus">Updated</span>
                                         </div>
                                     </div>
@@ -957,6 +997,50 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                         </div>
                     </div>
                 </section>
+
+                <div id="changeEmailModal" class="modal-overlay" style="display:none;">
+                    <div class="modal-panel" style="max-width:460px;">
+                        <h2 style="margin-top:0;">Change Admin Email</h2>
+                        <form id="changeEmailForm" class="modal-form-grid" style="grid-template-columns:1fr;">
+                            <div class="modal-field">
+                                <label>Current Email</label>
+                                <input id="currentEmail" type="email" readonly>
+                            </div>
+                            <div class="modal-field">
+                                <label>New Email</label>
+                                <input id="newEmail" type="email" required>
+                            </div>
+                            <div class="modal-field">
+                                <label>Confirm New Email</label>
+                                <input id="confirmNewEmail" type="email" required>
+                            </div>
+                            <div class="modal-actions">
+                                <button type="button" class="btn" onclick="closeChangeEmailModal()">Cancel</button>
+                                <button type="submit" class="btn primary">Update Email</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="changePasswordModal" class="modal-overlay" style="display:none;">
+                    <div class="modal-panel" style="max-width:460px;">
+                        <h2 style="margin-top:0;">Change Admin Password</h2>
+                        <form id="changePasswordForm" class="modal-form-grid" style="grid-template-columns:1fr;">
+                            <div class="modal-field">
+                                <label>New Password</label>
+                                <input id="newPassword" type="password" minlength="6" required>
+                            </div>
+                            <div class="modal-field">
+                                <label>Confirm New Password</label>
+                                <input id="confirmNewPassword" type="password" minlength="6" required>
+                            </div>
+                            <div class="modal-actions">
+                                <button type="button" class="btn" onclick="closeChangePasswordModal()">Cancel</button>
+                                <button type="submit" class="btn primary">Update Password</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
 
             </main>
         </div>
@@ -1001,10 +1085,15 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
         });
         async function editPatient(patientId) {
             try{
-                const res = await fetch(`api/patients.php?id=${patientId}`);
+                const res = await fetch(`api/patients.php?id=${patientId}&include_deleted=1`);
                 const json = await res.json();
                 if(!json.success) throw new Error(json.message||'Failed');
                 const p = json.data;
+                const status = (p.account_status || 'active').toLowerCase();
+                if (status === 'deleted') {
+                    alert('This patient is no longer available. Their historical data remains for reporting only.');
+                    return;
+                }
                 openPatientModal('edit', p);
             }catch(e){ alert('Failed to load patient'); }
         }
@@ -1078,6 +1167,178 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                 });
  
             return adminProfilePromise;
+        }
+
+        function openChangeEmailModal(){
+            ensureAdminProfile().then(profile=>{
+                if (!profile){
+                    alert('Unable to load admin profile. Please try again.');
+                    return;
+                }
+                const modal = document.getElementById('changeEmailModal');
+                if (!modal) return;
+                document.getElementById('currentEmail').value = profile.email || '';
+                document.getElementById('newEmail').value = '';
+                document.getElementById('confirmNewEmail').value = '';
+                modal.style.display = 'flex';
+            });
+        }
+
+        function closeChangeEmailModal(){
+            const modal = document.getElementById('changeEmailModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function openChangePasswordModal(){
+            ensureAdminProfile().then(profile=>{
+                if (!profile){
+                    alert('Unable to load admin profile. Please try again.');
+                    return;
+                }
+                const modal = document.getElementById('changePasswordModal');
+                if (!modal) return;
+                document.getElementById('newPassword').value = '';
+                document.getElementById('confirmNewPassword').value = '';
+                modal.style.display = 'flex';
+            });
+        }
+
+        function closeChangePasswordModal(){
+            const modal = document.getElementById('changePasswordModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        const changeEmailForm = document.getElementById('changeEmailForm');
+        if (changeEmailForm){
+            changeEmailForm.addEventListener('submit', async function(e){
+                e.preventDefault();
+                const newEmail = document.getElementById('newEmail').value.trim();
+                const confirmEmail = document.getElementById('confirmNewEmail').value.trim();
+                if (!newEmail || !confirmEmail || newEmail !== confirmEmail){
+                    alert('New email and confirm email must match.');
+                    return;
+                }
+                const profile = await ensureAdminProfile();
+                if (!profile || !profile.id){
+                    alert('Unable to load admin profile.');
+                    return;
+                }
+                const submitBtn = changeEmailForm.querySelector('button[type="submit"]');
+                const prevText = submitBtn.textContent;
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Updating...';
+                try{
+                    const res = await fetch('api/users.php', {
+                        method:'PUT',
+                        headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({ id: profile.id, email: newEmail })
+                    });
+                    const json = await res.json();
+                    if (!json.success) throw new Error(json.message || 'Failed to update email');
+                    sessionStorage.setItem('userEmail', newEmail);
+                    adminProfileCache = Object.assign({}, profile, { email: newEmail });
+                    populateAdminProfile(adminProfileCache);
+                    document.getElementById('adminProfileStatus').textContent = 'Email updated';
+                    closeChangeEmailModal();
+                    alert('Email updated successfully.');
+                }catch(err){
+                    alert(err.message || 'Failed to update email');
+                }finally{
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = prevText;
+                }
+            });
+        }
+
+        const changePasswordForm = document.getElementById('changePasswordForm');
+        if (changePasswordForm){
+            changePasswordForm.addEventListener('submit', async function(e){
+                e.preventDefault();
+                const newPassword = document.getElementById('newPassword').value.trim();
+                const confirmPassword = document.getElementById('confirmNewPassword').value.trim();
+                if (!newPassword || newPassword.length < 6){
+                    alert('Password must be at least 6 characters.');
+                    return;
+                }
+                if (newPassword !== confirmPassword){
+                    alert('Passwords do not match.');
+                    return;
+                }
+                const profile = await ensureAdminProfile();
+                if (!profile || !profile.id){
+                    alert('Unable to load admin profile.');
+                    return;
+                }
+                const submitBtn = changePasswordForm.querySelector('button[type="submit"]');
+                const prevText = submitBtn.textContent;
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Updating...';
+                try{
+                    const res = await fetch('api/users.php', {
+                        method:'PUT',
+                        headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({ id: profile.id, password: newPassword })
+                    });
+                    const json = await res.json();
+                    if (!json.success) throw new Error(json.message || 'Failed to update password');
+                    document.getElementById('adminProfileStatus').textContent = 'Password updated';
+                    closeChangePasswordModal();
+                    alert('Password updated successfully.');
+                }catch(err){
+                    alert(err.message || 'Failed to update password');
+                }finally{
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = prevText;
+                }
+            });
+        }
+
+        const changeEmailBtn = document.getElementById('openChangeEmailBtn');
+        if (changeEmailBtn){
+            changeEmailBtn.addEventListener('click', openChangeEmailModal);
+        }
+        const changePasswordBtn = document.getElementById('openChangePasswordBtn');
+        if (changePasswordBtn){
+            changePasswordBtn.addEventListener('click', openChangePasswordModal);
+        }
+        const editEmailCard = document.getElementById('editEmailCard');
+        if (editEmailCard){
+            editEmailCard.addEventListener('click', openChangeEmailModal);
+        }
+        const editRoleCard = document.getElementById('editRoleCard');
+        if (editRoleCard){
+            editRoleCard.addEventListener('click', () => alert('Role changes are restricted. Please contact support.'));
+        }
+        const editNameCard = document.getElementById('editNameCard');
+        if (editNameCard){
+            editNameCard.addEventListener('click', async () => {
+                const profile = await ensureAdminProfile();
+                if (!profile || !profile.id){
+                    alert('Unable to load admin profile.');
+                    return;
+                }
+                const first = (profile.first_name || '').trim();
+                const last = (profile.last_name || '').trim();
+                const newFirst = prompt('Enter new first name', first || '');
+                if (newFirst === null) return;
+                const newLast = prompt('Enter new last name', last || '');
+                if (newLast === null) return;
+                try{
+                    const res = await fetch('api/users.php', {
+                        method:'PUT',
+                        headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({ id: profile.id, first_name: newFirst.trim() || first, last_name: newLast.trim() || last })
+                    });
+                    const json = await res.json();
+                    if (!json.success) throw new Error(json.message || 'Failed to update name');
+                    adminProfileCache = Object.assign({}, profile, { first_name: newFirst, last_name: newLast });
+                    populateAdminProfile(adminProfileCache);
+                    document.getElementById('adminProfileStatus').textContent = 'Name updated';
+                    alert('Name updated successfully.');
+                }catch(err){
+                    alert(err.message || 'Failed to update name');
+                }
+            });
         }
 
         function populateAdminProfile(profile){
@@ -1204,7 +1465,10 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
 
         // Live data helpers
         async function fetchSummary(role){
-            const url = `api/users.php?role=${encodeURIComponent(role)}&page=1&limit=1`;
+            let url = `api/users.php?role=${encodeURIComponent(role)}&page=1&limit=1`;
+            if (role === 'doctor'){
+                url += '&doctor_status=approved';
+            }
             try{
             const res = await fetch(url);
             const json = await res.json();
@@ -1218,7 +1482,10 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             }
         }
         async function fetchRecent(role, limit=8){
-            const url = `api/users.php?role=${encodeURIComponent(role)}&page=1&limit=${limit}`;
+            let url = `api/users.php?role=${encodeURIComponent(role)}&page=1&limit=${limit}`;
+            if (role === 'doctor'){
+                url += '&doctor_status=approved';
+            }
             try{
             const res = await fetch(url);
             const json = await res.json();
@@ -1289,7 +1556,7 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--gray-500);">Loading patients...</td></tr>';
                 
                 const q = document.getElementById('searchPatients')?.value || '';
-                const res = await fetch('api/patients.php');
+                const res = await fetch('api/patients.php?include_deleted=1');
                 
                 if (!res.ok) {
                     throw new Error(`HTTP error! status: ${res.status}`);
@@ -1322,8 +1589,22 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                         const nameB = (`${b.first_name||''} ${b.last_name||''}`).trim().toLowerCase();
                         const emailA = (a.email||'').toLowerCase();
                         const emailB = (b.email||'').toLowerCase();
-                        if (sortBy==='email') return emailA.localeCompare(emailB);
-                        return nameA.localeCompare(nameB);
+                        const phoneA = (a.phone||'').toLowerCase();
+                        const phoneB = (b.phone||'').toLowerCase();
+                        const lastLoginA = a.last_login ? new Date(a.last_login).getTime() : 0;
+                        const lastLoginB = b.last_login ? new Date(b.last_login).getTime() : 0;
+                        switch (sortBy) {
+                            case 'email':
+                                return emailA.localeCompare(emailB);
+                            case 'phone':
+                                if (!phoneA && phoneB) return 1;
+                                if (phoneA && !phoneB) return -1;
+                                return phoneA.localeCompare(phoneB);
+                            case 'last_login':
+                                return lastLoginB - lastLoginA;
+                            default:
+                                return nameA.localeCompare(nameB);
+                        }
                     });
                     
                     // Render rows - always render
@@ -1335,14 +1616,23 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                             const email = p.email || '-';
                             const phone = p.phone || '-';
                             const lastLogin = p.last_login ? new Date(p.last_login).toLocaleDateString() : '-';
+                            const status = (p.account_status || 'active').toLowerCase();
+                            const isDeleted = status === 'deleted';
+                            const nameCell = isDeleted
+                                ? `<div style="display:flex; align-items:center; gap:8px;"><span>${fullName}</span><span class="status-pill deleted" title="Patient removed their account">Deleted</span></div>`
+                                : fullName;
+                            const editButton = `<button class="btn" onclick="editPatient(${p.id})">Edit</button>`;
+                            const deleteButton = isDeleted
+                                ? '<button class="btn" disabled title="Patient already removed">Removed</button>'
+                                : `<button class="btn" onclick="deletePatient(${p.id})">Delete</button>`;
                             return `<tr>
-                                <td>${fullName}</td>
+                                <td>${nameCell}</td>
                                 <td>${email}</td>
                                 <td>${phone}</td>
                                 <td>${lastLogin}</td>
                                 <td>
-                                    <button class="btn" onclick="editPatient(${p.id})">Edit</button>
-                                    <button class="btn" onclick="deletePatient(${p.id})">Delete</button>
+                                    ${editButton}
+                                    ${deleteButton}
                                 </td>
                             </tr>`;
                         }).join('');
@@ -1375,6 +1665,7 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
         }
         // Doctors management
         let doctors = [];
+        let pendingDoctors = [];
         let currentDoctorsPage = 1; // unused after pagination removal; kept for compatibility
         const doctorsPerPage = 10;   // unused
 
@@ -1384,6 +1675,8 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                 const json = await res.json();
                 if (!json.success) throw new Error(json.message||'Failed');
                 doctors = Array.isArray(json.data) ? json.data : [];
+                pendingDoctors = doctors.filter(d => (d.doctor_status || 'approved').toLowerCase() !== 'approved');
+                updatePendingDoctorsUI();
                 displayDoctors();
             }catch(e){
                 const tbody = document.querySelector('#doctorsTable tbody');
@@ -1403,8 +1696,24 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                 const nameB = (`${b.first_name||''} ${b.last_name||''}`).trim().toLowerCase();
                 const emailA = (a.email||'').toLowerCase();
                 const emailB = (b.email||'').toLowerCase();
-                if (sortBy==='email') return emailA.localeCompare(emailB);
-                return nameA.localeCompare(nameB);
+                const phoneA = (a.phone||'').toLowerCase();
+                const phoneB = (b.phone||'').toLowerCase();
+                const specialtyA = (a.specialty||'').toLowerCase();
+                const specialtyB = (b.specialty||'').toLowerCase();
+                switch (sortBy) {
+                    case 'email':
+                        return emailA.localeCompare(emailB);
+                    case 'phone':
+                        if (!phoneA && phoneB) return 1;
+                        if (phoneA && !phoneB) return -1;
+                        return phoneA.localeCompare(phoneB);
+                    case 'specialty':
+                        if (!specialtyA && specialtyB) return 1;
+                        if (specialtyA && !specialtyB) return -1;
+                        return specialtyA.localeCompare(specialtyB);
+                    default:
+                        return nameA.localeCompare(nameB);
+                }
             });
             return rows;
         }
@@ -1414,7 +1723,12 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             if (!tbody){ return; }
             const rows = getFilteredSortedDoctors();
             if (!rows.length){ tbody.innerHTML = '<tr><td colspan="5">No doctors found</td></tr>'; return; }
-            tbody.innerHTML = rows.map(d=>`<tr>
+            tbody.innerHTML = rows.map(d=>{
+                const status = (d.doctor_status || 'approved').toLowerCase();
+                const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+                const statusClass = ['approved','pending','rejected'].includes(status) ? status : 'approved';
+                const needsApproval = status === 'pending';
+                return `<tr>
                 <td>${(d.first_name||'')} ${(d.last_name||'')}</td>
                 <td>${d.email||''}</td>
                 <td>${d.phone||'-'}</td>
@@ -1422,12 +1736,92 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                 <td>
                     <button class="btn" onclick="viewDoctorDetails(${d.id})">View</button>
                     <button class="btn" onclick="openDoctorModal('edit', ${d.id})">Edit</button>
+                    ${needsApproval ? `<button class="btn" onclick="approveDoctor(${d.id}, this)">Approve</button>` : ''}
                     <button class="btn" onclick="deleteDoctor(${d.id})">Delete</button>
                 </td>
-            </tr>`).join('');
+            </tr>`;
+            }).join('');
+        }
+
+        function updatePendingDoctorsUI(){
+            const badge = document.getElementById('pendingDoctorsBadgeHeader');
+            if (badge){
+                badge.textContent = pendingDoctors.length;
+            }
+            const modal = document.getElementById('pendingDoctorsModal');
+            if (modal && modal.style.display === 'flex'){
+                renderPendingDoctorsList();
+            }
+        }
+
+        function renderPendingDoctorsList(){
+            const list = document.getElementById('pendingDoctorsList');
+            if (!list) return;
+            if (!pendingDoctors.length){
+                list.innerHTML = '<div class="alert-empty">No pending approvals 🎉</div>';
+                return;
+            }
+            list.innerHTML = pendingDoctors.map(doc=>{
+                const name = `${doc.first_name||''} ${doc.last_name||''}`.trim() || doc.email || `Doctor #${doc.id}`;
+                const specialty = doc.specialty || 'General';
+                const email = doc.email || '-';
+                return `<div class="alert-item">
+                    <div class="alert-item-title">${name}</div>
+                    <div class="alert-item-message">${specialty} • ${email}</div>
+                    <div class="alert-actions" style="justify-content:flex-end; margin-top:8px;">
+                        <button class="btn primary" onclick="approveDoctor(${doc.id}, this)">Approve</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function openPendingDoctorsModal(){
+            const modal = document.getElementById('pendingDoctorsModal');
+            if (!modal) return;
+            renderPendingDoctorsList();
+            modal.style.display = 'flex';
+        }
+
+        function closePendingDoctorsModal(){
+            const modal = document.getElementById('pendingDoctorsModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function approveDoctor(doctorId, btn){
+            if (!doctorId) return;
+            let originalText = '';
+            if (btn){
+                originalText = btn.textContent;
+                btn.disabled = true;
+                btn.textContent = 'Approving...';
+            }
+            try{
+                const res = await fetch('api/doctor-approval.php', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ doctor_id: doctorId, status: 'approved' })
+                });
+                const json = await res.json();
+                if (!json.success) throw new Error(json.message || 'Failed to approve doctor');
+                alert('Doctor approved successfully.');
+                await renderDoctors();
+            } catch(e){
+                alert(e.message || 'Failed to approve doctor');
+            } finally {
+                if (btn){
+                    btn.disabled = false;
+                    btn.textContent = originalText || 'Approve';
+                }
+            }
         }
 
         document.getElementById('addDoctor').addEventListener('click', ()=> openDoctorModal('add'));
+        const pendingBtn = document.getElementById('pendingDoctorsBtnHeader');
+        if (pendingBtn){ pendingBtn.addEventListener('click', openPendingDoctorsModal); }
+        const pendingModal = document.getElementById('pendingDoctorsModal');
+        if (pendingModal){
+            pendingModal.addEventListener('click', (e)=>{ if (e.target === pendingModal){ closePendingDoctorsModal(); }});
+        }
         // No delegation needed; using inline onclick for reliability (matches patient view pattern)
         const addApptBtn = document.getElementById('addAppt'); if (addApptBtn) addApptBtn.addEventListener('click', ()=> openApptModal('add'));
         const apptDate = document.getElementById('apptDate'); if (apptDate) apptDate.addEventListener('change', loadAppointments);
@@ -1643,6 +2037,8 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             const address = doc.address||'-';
             const lastLogin = doc.last_login||'-';
             const joined = doc.created_at||'-';
+            const status = (doc.doctor_status || 'approved').toLowerCase();
+            const statusLabel = status.charAt(0).toUpperCase()+status.slice(1);
             c.innerHTML = `
                 <div style="padding:16px">
                     <h3 style="margin:0 0 8px 0; text-transform:capitalize">${name || email}</h3>
@@ -1650,7 +2046,8 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                     <h4 style="margin:8px 0">Profile Details</h4>
                     <table class="table" style="width:100%">
                         <tbody>
-                            <tr><td style="width:180px"><strong>Specialty</strong></td><td>${specialty}</td></tr>
+                            <tr><td style="width:180px"><strong>Approval Status</strong></td><td><span class="status-pill ${status}">${statusLabel}</span></td></tr>
+                            <tr><td><strong>Specialty</strong></td><td>${specialty}</td></tr>
                             <tr><td><strong>Gender</strong></td><td>${gender}</td></tr>
                             <tr><td><strong>Address</strong></td><td>${address}</td></tr>
                             <tr><td><strong>Joined</strong></td><td>${joined}</td></tr>
@@ -1814,7 +2211,7 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             if (apptPatients.length && apptDoctors.length){ return; }
             const [pRes, dRes] = await Promise.all([
                 fetch('api/users.php?role=patient&page=1&limit=500'),
-                fetch('api/users.php?role=doctor&page=1&limit=500')
+                fetch('api/users.php?role=doctor&doctor_status=approved&page=1&limit=500')
             ]);
             const pJson = await pRes.json();
             const dJson = await dRes.json();
@@ -1833,6 +2230,12 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             const minutes = parseInt(mm, 10);
             if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
             return hours * 60 + minutes;
+        }
+
+        function minutesToTimeLabel(totalMinutes){
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}`;
         }
 
         function minutesWithinRanges(totalMinutes, ranges){
@@ -2029,13 +2432,9 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             if (!phone || phone.trim() === '') {
                 return { valid: true, message: '' }; // Phone is optional
             }
-            // Remove allowed formatting characters and check if only numbers remain
-            const digitsOnly = phone.trim().replace(/[\+\s\-\(\)\.]/g, '');
-            if (!/^\d+$/.test(digitsOnly)) {
-                return { valid: false, message: 'Phone number can only contain numbers and formatting characters (+, -, spaces, parentheses, dots)' };
-            }
-            if (digitsOnly.length < 7 || digitsOnly.length > 15) {
-                return { valid: false, message: 'Phone number must be between 7 and 15 digits' };
+            const digitsOnly = phone.trim().replace(/\D/g, '');
+            if (!/^\d{10}$/.test(digitsOnly)) {
+                return { valid: false, message: 'Phone number must contain exactly 10 digits' };
             }
             return { valid: true, message: '' };
         }
@@ -2232,10 +2631,11 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
         document.getElementById('apptForm').addEventListener('submit', saveApptForm);
         let allDoctorsAv = [];
         let allAppointmentsAv = [];
+        let allAvailabilityEntries = [];
 
         async function loadDoctorsAv(){
             try{
-                const res = await fetch('api/users.php?role=doctor&page=1&limit=100');
+                const res = await fetch('api/users.php?role=doctor&doctor_status=approved&page=1&limit=100');
                 const json = await res.json();
                 if (json.success){
                     allDoctorsAv = json.data || [];
@@ -2252,6 +2652,27 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                 }
             }catch(e){
                 console.warn('Failed to load doctors:', e);
+            }
+        }
+
+        async function loadDoctorAvailability(doctorId, date){
+            if (!doctorId){
+                allAvailabilityEntries = [];
+                return;
+            }
+            try{
+                let url = `api/availability.php?doctor_id=${doctorId}`;
+                if (date) url += `&date=${date}`;
+                const res = await fetch(url);
+                const json = await res.json();
+                if (json.success){
+                    allAvailabilityEntries = Array.isArray(json.data) ? json.data : [];
+                } else {
+                    allAvailabilityEntries = [];
+                }
+            }catch(e){
+                console.warn('Failed to load availability entries:', e);
+                allAvailabilityEntries = [];
             }
         }
 
@@ -2277,7 +2698,7 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
         function generateTimeSlots(){
             const slots = [];
             for (let h = 10; h < 19; h++){
-                for (let m = 0; m < 60; m += 15){
+                for (let m = 0; m < 60; m += 30){
                     const hh = String(h).padStart(2,'0');
                     const mm = String(m).padStart(2,'0');
                     slots.push(`${hh}:${mm}`);
@@ -2296,7 +2717,7 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                 return a.doctor_id == doctorId && 
                        apptDate === date && 
                        apptTime === time && 
-                       status !== 'cancelled';
+                       status !== 'cancelled' && status !== 'rescheduled';
             });
         }
 
@@ -2332,30 +2753,52 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             }
 
             const timeSlots = generateTimeSlots();
-            const bookedSlots = [];
-            const availableSlots = [];
-            
-            timeSlots.forEach(slot=>{
-                if (isSlotPast(date, slot)){
-                    // Skip past slots
-                } else if (isSlotBooked(doctor.id, date, slot)){
-                    bookedSlots.push(slot);
-                } else {
-                    availableSlots.push(slot);
+            const availabilityForDate = allAvailabilityEntries.filter(entry => entry.availability_date === date);
+            const availableRanges = availabilityForDate.filter(entry => entry.status === 'available');
+            const unavailableRanges = availabilityForDate.filter(entry => entry.status !== 'available');
+            const slotMap = new Map();
+            const slotInterval = 30;
+            availableRanges.forEach(range => {
+                let start = toMinutes((range.start_time || '').substring(0,5));
+                let end = toMinutes((range.end_time || '').substring(0,5));
+                if (start === null || end === null || start >= end) return;
+                for (let minutes = start; minutes < end; minutes += slotInterval){
+                    const label = minutesToTimeLabel(minutes);
+                    slotMap.set(label, 'available');
                 }
             });
+            unavailableRanges.forEach(range => {
+                let start = toMinutes((range.start_time || '').substring(0,5));
+                let end = toMinutes((range.end_time || '').substring(0,5));
+                if (start === null || end === null || start >= end) return;
+                for (let minutes = start; minutes < end; minutes += slotInterval){
+                    const label = minutesToTimeLabel(minutes);
+                    slotMap.set(label, 'unavailable');
+                }
+            });
+            const hasExplicitAvailable = Array.from(slotMap.values()).some(status => status === 'available');
 
             const specialty = doctor.specialty || 'General Medicine';
             const doctorName = `Dr. ${(doctor.first_name||'')} ${(doctor.last_name||'')}`.trim() || doctor.email;
             
             let slotsHTML = '';
+            let availableCount = 0;
             timeSlots.forEach(slot=>{
+                let baseStatus = slotMap.get(slot) || 'closed';
+                if (!hasExplicitAvailable && baseStatus === 'closed') {
+                    baseStatus = 'available';
+                }
                 if (isSlotPast(date, slot)){
                     slotsHTML += `<div class="time-slot past" style="padding:8px 12px; border-radius:8px; text-align:center; font-size:13px; font-weight:600; background:var(--gray-200); color:var(--gray-500); border:2px solid var(--gray-300);">${slot}</div>`;
                 } else if (isSlotBooked(doctor.id, date, slot)){
                     slotsHTML += `<div class="time-slot booked" style="padding:8px 12px; border-radius:8px; text-align:center; font-size:13px; font-weight:600; background:#fee2e2; color:#991b1b; border:2px solid #fca5a5; cursor:not-allowed; opacity:0.6;" title="Booked">${slot}</div>`;
-                } else {
+                } else if (baseStatus === 'unavailable'){
+                    slotsHTML += `<div class="time-slot unavailable" style="padding:8px 12px; border-radius:8px; text-align:center; font-size:13px; font-weight:600; background:#ede9fe; color:#5b21b6; border:2px solid #c4b5fd;" title="Marked unavailable">${slot}</div>`;
+                } else if (baseStatus === 'available'){
+                    availableCount++;
                     slotsHTML += `<div class="time-slot available" style="padding:8px 12px; border-radius:8px; text-align:center; font-size:13px; font-weight:600; background:#dcfce7; color:#166534; border:2px solid #86efac;" title="Available">${slot}</div>`;
+                } else {
+                    slotsHTML += `<div class="time-slot closed" style="padding:8px 12px; border-radius:8px; text-align:center; font-size:13px; font-weight:600; background:var(--gray-100); color:var(--gray-500); border:2px dashed var(--gray-300);" title="No availability configured">${slot}</div>`;
                 }
             });
 
@@ -2368,7 +2811,7 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                         </div>
                         <div style="text-align:right;">
                             <div style="font-size:14px; color:var(--gray-600);">Available</div>
-                            <div style="font-weight:700; color:#166534; font-size:20px;">${availableSlots.length} slots</div>
+                            <div style="font-weight:700; color:#166534; font-size:20px;">${availableCount} slots</div>
                         </div>
                     </div>
                     <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap:8px;">
@@ -2393,7 +2836,10 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                 return;
             }
             
-            await loadAppointmentsAv(doctorId, date);
+            await Promise.all([
+                loadAppointmentsAv(doctorId, date),
+                loadDoctorAvailability(doctorId, date)
+            ]);
             displayAvailability(doctorId, date);
         }
 
@@ -2404,6 +2850,7 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             if (dateInput) dateInput.value = '';
             const container = document.getElementById('availabilityResults');
             if (container) container.innerHTML = '<div class="card" style="padding:40px; text-align:center; color:var(--gray-500);">Please select a doctor and date, then click Search to view availability.</div>';
+            allAvailabilityEntries = [];
         }
 
         function renderAvailability(){
@@ -2545,7 +2992,7 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                     fetchRecent('patient', 12).catch(() => []), // Return empty array if fetch fails - used for dashboard table
                     fetch('api/patients.php').then(r => r.json()).then(data => data.success ? (data.data || []) : []).catch(() => []), // Fetch ALL patients for chart
                     fetch('api/appointments.php').then(r => r.json()).catch(() => ({success: false, data: []})),
-                    fetch('api/users.php?role=doctor&page=1&limit=100').then(r => r.json()).catch(() => ({success: false, data: []})),
+                    fetch('api/users.php?role=doctor&doctor_status=approved&page=1&limit=100').then(r => r.json()).catch(() => ({success: false, data: []})),
                     fetch('api/reviews.php?limit=5').then(r => r.json()).catch(() => ({success: false, data: []}))
                 ]);
 
@@ -2775,7 +3222,7 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                                 <tbody>
                                     <tr><td style="width:120px; font-weight:600">Date:</td><td>${date}</td></tr>
                                     <tr><td style="font-weight:600">Time:</td><td>${time}</td></tr>
-                                    <tr><td style="font-weight:600">Status:</td><td><span style="padding:4px 8px; border-radius:4px; background:${status === 'completed' ? '#10b981' : status === 'cancelled' ? '#ef4444' : status === 'scheduled' ? '#3b82f6' : '#f59e0b'}; color:white; font-size:12px">${status}</span></td></tr>
+                                    <tr><td style="font-weight:600">Status:</td><td><span style="padding:4px 8px; border-radius:4px; background:${status === 'completed' ? '#10b981' : status === 'cancelled' ? '#ef4444' : status === 'rescheduled' ? '#f97316' : status === 'scheduled' ? '#3b82f6' : '#f59e0b'}; color:white; font-size:12px">${status}</span></td></tr>
                                     <tr><td style="font-weight:600">Notes:</td><td>${notes}</td></tr>
                                 </tbody>
                             </table>
@@ -3323,8 +3770,9 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             const currentEmail = currentEmailInput.value.trim().toLowerCase();
             const newEmail = newEmailInput.value.trim().toLowerCase();
 
-            if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)){
-                showChangeEmailStatus('Please enter a valid new email address.', false);
+            const emailPattern = /^[^\s@]+@[A-Za-z0-9.-]+\.com$/i;
+            if (!newEmail || !emailPattern.test(newEmail)){
+                showChangeEmailStatus('Please enter a valid new email ending with .com.', false);
                 newEmailInput.focus();
                 return;
             }
@@ -3375,7 +3823,8 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                 if (btn){ btn.disabled = false; btn.textContent = 'Update Email'; }
             }
         });
-    </script>
+</script>
+<script src="public/js/email-phone-validation.js"></script>
 </body>
 </html>
 

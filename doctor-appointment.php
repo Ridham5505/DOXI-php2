@@ -359,16 +359,16 @@
         </div>
     </div>
 
-    <!-- Cancel Confirmation Modal -->
+    <!-- Reject Confirmation Modal -->
     <div id="cancel-confirmation-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">Cancel Appointment</h3>
+                <h3 class="modal-title">Reject Appointment</h3>
                 <button class="close-modal" onclick="closeCancelModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <p id="cancel-confirmation-text" style="font-size: var(--font-size-base); color: var(--gray-700); margin: 0;">
-                    Are you sure you want to cancel this appointment?
+                    Are you sure you want to reject this appointment?
                 </p>
             </div>
             <div class="modal-footer">
@@ -378,16 +378,16 @@
         </div>
     </div>
 
-    <!-- Complete Confirmation Modal -->
+    <!-- Approve Confirmation Modal -->
     <div id="complete-confirmation-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">Complete Appointment</h3>
+                <h3 class="modal-title">Approve Appointment</h3>
                 <button class="close-modal" onclick="closeCompleteModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <p id="complete-confirmation-text" style="font-size: var(--font-size-base); color: var(--gray-700); margin: 0;">
-                    Are you sure you want to mark this appointment as completed?
+                    Are you sure you want to mark this appointment as approved?
                 </p>
             </div>
             <div class="modal-footer">
@@ -874,8 +874,8 @@
                         <td><span class="pill ${statusClass}">${statusText}</span></td>
                         <td class="actions">
                             <button class="btn-action btn-action-view" onclick="viewAppt(${apt.id})">View</button>
-                            ${showCompleteButton ? `<button class="btn-action btn-action-complete" onclick="showCompleteConfirmation(${apt.id})">Complete</button>` : ''}
-                            <button class="btn-action btn-action-cancel" onclick="showCancelConfirmation(${apt.id})">Cancel</button>
+                            ${showCompleteButton ? `<button class="btn-action btn-action-complete" onclick="showCompleteConfirmation(${apt.id})">Approve</button>` : ''}
+                            <button class="btn-action btn-action-cancel" onclick="showCancelConfirmation(${apt.id})">Reject</button>
                         </td>
                     </tr>
                 `;
@@ -1030,7 +1030,7 @@
             const modal = document.getElementById('cancel-confirmation-modal');
             modal.dataset.appointmentId = appointmentId;
             
-            document.getElementById('cancel-confirmation-text').textContent = `Are you sure you want to cancel appointment #${appointmentId} for ${patientName}?`;
+            document.getElementById('cancel-confirmation-text').textContent = `Are you sure you want to reject appointment #${appointmentId} for ${patientName}?`;
             
             modal.style.display = 'block';
         }
@@ -1078,20 +1078,20 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('Appointment cancelled successfully!');
+                    alert('Appointment rejected successfully!');
                     await loadAllAppointments();
                 } else {
-                    alert('Failed to cancel appointment: ' + (result.message || 'Unknown error'));
+                    alert('Failed to reject appointment: ' + (result.message || 'Unknown error'));
                 }
             } catch (error) {
-                console.error('Error cancelling appointment:', error);
-                alert('Error cancelling appointment. Please try again.');
+                console.error('Error rejecting appointment:', error);
+                alert('Error rejecting appointment. Please try again.');
             }
         }
 
         /**
          * Show Complete Confirmation Modal
-         * Displays a confirmation popup before marking appointment as completed
+         * Displays a confirmation popup before marking appointment as approved
          */
         function showCompleteConfirmation(appointmentId) {
             const appointment = allAppointments.find(apt => apt.id == appointmentId);
@@ -1100,7 +1100,7 @@
             const modal = document.getElementById('complete-confirmation-modal');
             modal.dataset.appointmentId = appointmentId;
             
-            document.getElementById('complete-confirmation-text').textContent = `Are you sure you want to mark appointment #${appointmentId} for ${patientName} as completed?`;
+            document.getElementById('complete-confirmation-text').textContent = `Are you sure you want to mark appointment #${appointmentId} for ${patientName} as approved?`;
             
             modal.style.display = 'block';
         }
@@ -1128,7 +1128,7 @@
 
         /**
          * Complete Appointment
-         * Marks the selected appointment as completed after confirmation
+         * Marks the selected appointment as approved after confirmation
          */
         async function completeAppointment(appointmentId) {
             closeCompleteModal();
@@ -1148,14 +1148,14 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('Appointment marked as completed successfully!');
+                    alert('Appointment approved successfully!');
                     await loadAllAppointments();
                 } else {
-                    alert('Failed to complete appointment: ' + (result.message || 'Unknown error'));
+                    alert('Failed to approve appointment: ' + (result.message || 'Unknown error'));
                 }
             } catch (error) {
-                console.error('Error completing appointment:', error);
-                alert('Error completing appointment. Please try again.');
+                console.error('Error approving appointment:', error);
+                alert('Error approving appointment. Please try again.');
             }
         }
 

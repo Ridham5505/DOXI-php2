@@ -359,8 +359,15 @@
         <header class="dashboard-header">
             <div class="header-content">
                 <div class="header-left">
-                    <div class="logo">
-                        <img src="public/assets/doxi-logo.svg?v=4" alt="DOXI Logo" style="display:block;height:52px;width:auto;">
+                    <div class="logo" style="display:flex;align-items:center;gap:12px;">
+                        <div style="width:40px;height:40px;border-radius:14px;background:linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%);box-shadow:0 6px 15px rgba(37,99,235,.25);display:flex;align-items:center;justify-content:center;">
+                            <div style="width:24px;height:24px;border-radius:9px;border:2px solid #fff;display:flex;align-items:center;justify-content:center;">
+                                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M3 6.5L5.2 8.7L10 3.7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <span style="font-size:26px;font-weight:800;color:#2563eb;letter-spacing:0.6px;">DOXI</span>
                     </div>
                     <div class="user-info">
                         <div class="user-avatar">A</div>
@@ -395,7 +402,8 @@
                             <select id="sortPatients" class="sort-select" onchange="sortPatients()">
                                 <option value="name">Sort by Name</option>
                                 <option value="email">Sort by Email</option>
-                                <option value="date">Sort by Registration Date</option>
+                                <option value="phone">Sort by Phone</option>
+                                <option value="last_login">Sort by Last Login</option>
                             </select>
                             <button class="btn btn-primary" onclick="openAddPatientModal()">+ Add Patient</button>
                         </div>
@@ -657,14 +665,28 @@
             
             patients.sort((a, b) => {
                 switch (sortBy) {
-                    case 'name':
-                        const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
-                        const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+                    case 'name': {
+                        const nameA = `${a.first_name || ''} ${a.last_name || ''}`.trim().toLowerCase();
+                        const nameB = `${b.first_name || ''} ${b.last_name || ''}`.trim().toLowerCase();
                         return nameA.localeCompare(nameB);
-                    case 'email':
-                        return a.email.toLowerCase().localeCompare(b.email.toLowerCase());
-                    case 'date':
-                        return new Date(b.created_at) - new Date(a.created_at);
+                    }
+                    case 'email': {
+                        const emailA = (a.email || '').toLowerCase();
+                        const emailB = (b.email || '').toLowerCase();
+                        return emailA.localeCompare(emailB);
+                    }
+                    case 'phone': {
+                        const phoneA = (a.phone || '').toLowerCase();
+                        const phoneB = (b.phone || '').toLowerCase();
+                        if (!phoneA && phoneB) return 1;
+                        if (phoneA && !phoneB) return -1;
+                        return phoneA.localeCompare(phoneB);
+                    }
+                    case 'last_login': {
+                        const lastLoginA = a.last_login ? new Date(a.last_login).getTime() : 0;
+                        const lastLoginB = b.last_login ? new Date(b.last_login).getTime() : 0;
+                        return lastLoginB - lastLoginA;
+                    }
                     default:
                         return 0;
                 }
@@ -843,6 +865,7 @@
         
         // Event listeners
         document.getElementById('patientForm').addEventListener('submit', savePatient);
-    </script>
+</script>
+<script src="public/js/email-phone-validation.js"></script>
 </body>
 </html>

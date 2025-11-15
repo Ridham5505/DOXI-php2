@@ -1,3 +1,5 @@
+
+        
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -262,6 +264,22 @@
                 </div>
             </form>
         </div>
+
+        <!-- Account Control -->
+        <div class="card" style="background:#fef2f2;border:1px solid #fecaca;">
+            <h2 class="section-title" style="border-color:#f9b4b4;color:#b91c1c;">Account Control</h2>
+            <p style="color:#b91c1c;margin-bottom:var(--spacing-4);">
+                Deleting your account will permanently remove your profile, appointments, and records. This action cannot be undone.
+            </p>
+            <div class="btn-row" style="justify-content:flex-start;">
+                <button type="button"
+                        class="btn"
+                        style="background:#ef4444;color:#fff;border:2px solid #ef4444;"
+                        onclick="confirmDoctorAccountDeletion()">
+                    Delete My Account
+                </button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -435,6 +453,29 @@
                 practice_address: document.getElementById('practice-address').value.trim() || null
             };
 
+            const emailPattern = /^[^\s@]+@[A-Za-z0-9.-]+\.com$/i;
+            if (!emailPattern.test(updateData.email)) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Invalid Email',
+                    text: 'Please enter a valid email address ending with .com.'
+                });
+                return;
+            }
+
+            if (updateData.phone) {
+                const digitsOnly = updateData.phone.replace(/\D/g, '');
+                if (digitsOnly.length !== 10) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Invalid Phone',
+                        text: 'Phone number must contain exactly 10 digits.'
+                    });
+                    return;
+                }
+                updateData.phone = digitsOnly;
+            }
+
             try {
                 const response = await fetch('api/users.php', {
                     method: 'PUT',
@@ -580,11 +621,9 @@
                 
                 if (result.success) {
                     showAlert(result.message || 'Password changed successfully. Please log in again.', 'success');
-                    // Clear session and redirect to login after 2 seconds
-                    setTimeout(() => {
-                        sessionStorage.clear();
-                        window.location.href = 'login.php';
-                    }, 2000);
+                    document.getElementById('change-password-form').reset();
+                    sessionStorage.clear();
+                    window.location.href = 'login.php';
                 } else {
                     showAlert('Failed to change password: ' + (result.message || 'Unknown error'), 'error');
                 }
@@ -764,7 +803,61 @@
                 genderSelect.addEventListener('change', validateRequiredFields);
             }
         });
+
+        function confirmDoctorAccountDeletion(){
+            if (!doctorId){
+                showAlert('Doctor ID not available. Please refresh and try again.', 'error');
+                return;
+            }
+            Swal.fire({
+                title: 'Delete Account?',
+                text: 'This will permanently remove your doctor profile, appointments, and related records. This action cannot be undone.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, delete it',
+                cancelButtonText: 'Cancel'
+            }).then(async (result) => {
+                if (result.isConfirmed){
+                    const success = await deleteDoctorAccount();
+                    if (success){
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Account deleted',
+                            text: 'Your account has been removed. Redirecting...',
+                            timer: 2500,
+                            showConfirmButton: false
+                        });
+                        sessionStorage.clear();
+                        setTimeout(()=>{ window.location.href = 'index.php'; }, 2000);
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Deletion failed',
+                            text: 'We could not delete your account. Please try again later.'
+                        });
+                    }
+                }
+            });
+        }
+
+        async function deleteDoctorAccount(){
+            try{
+                const res = await fetch('api/users.php', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: doctorId })
+                });
+                const json = await res.json().catch(()=>null);
+                return json && json.success;
+            }catch(error){
+                console.error('Account deletion error', error);
+                return false;
+            }
+        }
     </script>
+    <script src="public/js/email-phone-validation.js"></script>
 </body>
 </html>
 

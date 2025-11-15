@@ -71,19 +71,27 @@
                 <div class="grid-2">
                     <div class="form-group">
                         <label for="email">Work Email</label>
-                        <input id="email" type="email" name="email" required>
+                        <input id="email" type="email" name="email" required pattern="^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.com$" title="Email must end with .com">
                         <div class="error-message" id="email-error"></div>
                     </div>
                     <div class="form-group">
                         <label for="phone">Phone</label>
-                        <input id="phone" name="phone" placeholder="e.g., +1 555 123 4567">
+                        <input id="phone" name="phone" required maxlength="10" pattern="^\d{10}$" title="Enter exactly 10 digits">
                         <div class="error-message" id="phone-error"></div>
                     </div>
                 </div>
                 <div class="grid-2">
                     <div class="form-group">
                         <label for="license">License Number</label>
-                        <input id="license" name="license" required>
+                        <input
+                            id="license"
+                            name="license"
+                            required
+                            maxlength="20"
+                            pattern="^[A-Z]{2}\/(19|20)\d{2}\/\d{5,6}$"
+                            placeholder="e.g., TN/2020/123456"
+                            title="Format: SS/YYYY/12345 (state code, year, serial)"
+                        >
                         <div class="error-message" id="license-error"></div>
                     </div>
                     <div class="form-group">
@@ -114,6 +122,7 @@
                     <a class="btn btn-secondary" href="login.php" onclick="preselectRole(event,'doctor')">Back to Login</a>
                 </div>
                 <div class="helper">Already have an account? <a href="login.php" onclick="preselectRole(event,'doctor')">Login as Doctor</a></div>
+                <div id="approvalStatusNotice" style="margin-top:16px; display:none; padding:12px; border-radius:12px; background:#fef3c7; color:#92400e; font-weight:600; text-align:center;"></div>
             </form>
         </div>
     </div>
@@ -145,12 +154,12 @@
         }
         
         function validateEmail(email) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const emailRegex = /^[^\s@]+@[A-Za-z0-9.-]+\.com$/i;
             if (!email || email.trim() === '') {
                 return { valid: false, message: 'Email is required' };
             }
             if (!emailRegex.test(email.trim())) {
-                return { valid: false, message: 'Please enter a valid email address' };
+                return { valid: false, message: 'Please enter a valid email address ending with .com' };
             }
             return { valid: true, message: '' };
         }
@@ -159,17 +168,9 @@
             if (!phone || phone.trim() === '') {
                 return { valid: true, message: '' }; // Phone is optional
             }
-            // Check if letters or special characters (except +, -, spaces, parentheses, dots) are present
-            if (/[a-zA-Z@#$%^&*!]/.test(phone.trim())) {
-                return { valid: false, message: 'Phone number cannot contain letters or special characters (only numbers, +, -, spaces, parentheses, and dots allowed)' };
-            }
-            // Remove allowed formatting characters and check if only numbers remain
-            const digitsOnly = phone.trim().replace(/[\+\s\-\(\)\.]/g, '');
-            if (!/^\d+$/.test(digitsOnly)) {
-                return { valid: false, message: 'Phone number must contain only digits with optional formatting (+, -, spaces, parentheses, dots)' };
-            }
-            if (digitsOnly.length < 7 || digitsOnly.length > 15) {
-                return { valid: false, message: 'Phone number must be between 7 and 15 digits' };
+            const digitsOnly = phone.trim().replace(/\D/g, '');
+            if (!/^\d{10}$/.test(digitsOnly)) {
+                return { valid: false, message: 'Phone number must contain exactly 10 digits' };
             }
             return { valid: true, message: '' };
         }
@@ -178,17 +179,15 @@
             if (!license || license.trim() === '') {
                 return { valid: false, message: 'License number is required' };
             }
-            if (license.trim().length < 3) {
-                return { valid: false, message: 'License number must be at least 3 characters long' };
+            const formatted = license.trim().toUpperCase();
+            const licenseRegex = /^[A-Z]{2}\/(19|20)\d{2}\/\d{5,6}$/;
+            if (!licenseRegex.test(formatted)) {
+                return {
+                    valid: false,
+                    message: 'Format must be SS/YYYY/12345 (e.g., TN/2020/123456)'
+                };
             }
-            if (license.trim().length > 20) {
-                return { valid: false, message: 'License number must be less than 20 characters' };
-            }
-            // License can contain letters and numbers, but no special characters except hyphens
-            if (!/^[a-zA-Z0-9\-]+$/.test(license.trim())) {
-                return { valid: false, message: 'License number can only contain letters, numbers, and hyphens' };
-            }
-            return { valid: true, message: '' };
+            return { valid: true, message: '', normalized: formatted };
         }
         
         function validateExperience(experience) {
@@ -330,26 +329,39 @@
             // Prevent typing letters in phone field
             const phoneInput = document.getElementById('phone');
             if (phoneInput) {
-                phoneInput.addEventListener('input', function(e) {
-                    // Remove letters and invalid special characters in real-time
-                    const originalValue = this.value;
-                    const cleaned = originalValue.replace(/[a-zA-Z@#$%^&*!]/g, '');
-                    if (originalValue !== cleaned) {
-                        this.value = cleaned;
-                        showError('phone', 'Phone number cannot contain letters or invalid characters');
-                        setTimeout(() => {
-                            const result = validatePhone(cleaned);
-                            if (result.valid) {
-                                showValid('phone');
-                            }
-                        }, 100);
+                const handlePhoneValidation = () => {
+                    const digits = phoneInput.value.replace(/\D/g, '').slice(0, 10);
+                    if (phoneInput.value !== digits) {
+                        phoneInput.value = digits;
+                    }
+                    const result = validatePhone(digits);
+                    if (!result.valid) {
+                        showError('phone', result.message);
+                    } else {
+                        showValid('phone');
+                    }
+                };
+                phoneInput.addEventListener('input', handlePhoneValidation);
+                phoneInput.addEventListener('blur', handlePhoneValidation);
+            }
+
+            const licenseInput = document.getElementById('license');
+            if (licenseInput) {
+                licenseInput.addEventListener('input', () => {
+                    const cleaned = licenseInput.value
+                        .toUpperCase()
+                        .replace(/[^A-Z0-9\/]/g, '')
+                        .slice(0, 20);
+                    if (licenseInput.value !== cleaned) {
+                        licenseInput.value = cleaned;
                     }
                 });
-                phoneInput.addEventListener('keypress', function(e) {
-                    // Only allow numbers, +, -, spaces, parentheses, dots
-                    if (!/[0-9\+\-\(\)\.\s]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-                        e.preventDefault();
-                        showError('phone', 'Only numbers and phone formatting characters allowed');
+                licenseInput.addEventListener('blur', () => {
+                    const result = validateLicense(licenseInput.value);
+                    if (!result.valid) {
+                        showError('license', result.message);
+                    } else {
+                        showValid('license');
                     }
                 });
             }
@@ -439,10 +451,98 @@
             });
         });
         
+        let approvalWatcherInterval = null;
+        const APPROVAL_STORAGE_KEY = 'pendingDoctorEmail';
+
+        function updateApprovalNotice(email, state){
+            const notice = document.getElementById('approvalStatusNotice');
+            if (!notice) return;
+            if (!email){
+                notice.style.display = 'none';
+                notice.textContent = '';
+                return;
+            }
+            notice.style.display = 'block';
+            if (state === 'approved'){
+                notice.textContent = `Doctor account for ${email} has been approved. Redirecting to login...`;
+                notice.style.background = '#dcfce7';
+                notice.style.color = '#166534';
+            } else if (state === 'rejected'){
+                notice.textContent = `Registration for ${email} was rejected. Please contact support.`;
+                notice.style.background = '#fee2e2';
+                notice.style.color = '#b91c1c';
+            } else {
+                notice.textContent = `Registration received for ${email}. Please wait while the admin approves your account.`;
+                notice.style.background = '#fef3c7';
+                notice.style.color = '#92400e';
+            }
+        }
+
+        function stopDoctorApprovalWatcher(){
+            if (approvalWatcherInterval){
+                clearInterval(approvalWatcherInterval);
+                approvalWatcherInterval = null;
+            }
+        }
+
+        async function checkDoctorApprovalStatus(email){
+            if (!email) return;
+            try{
+                const res = await fetch(`api/users.php?email=${encodeURIComponent(email)}`);
+                const json = await res.json();
+                if (!json.success || !json.data) return;
+                const status = (json.data.doctor_status || 'approved').toLowerCase();
+                if (status === 'approved'){
+                    stopDoctorApprovalWatcher();
+                    updateApprovalNotice(email, 'approved');
+                    localStorage.removeItem(APPROVAL_STORAGE_KEY);
+                    alert('Your doctor account has been approved! You can now log in.');
+                    const url = new URL('login.php', location.href);
+                    url.searchParams.set('role','doctor');
+                    location.href = url.toString();
+                } else if (status === 'rejected'){
+                    stopDoctorApprovalWatcher();
+                    updateApprovalNotice(email, 'rejected');
+                    localStorage.removeItem(APPROVAL_STORAGE_KEY);
+                    alert('Your registration was rejected. Please contact support.');
+                } else {
+                    updateApprovalNotice(email, 'pending');
+                }
+            } catch(e){
+                console.error('Approval status check failed', e);
+            }
+        }
+
+        function startDoctorApprovalWatcher(email){
+            if (!email) return;
+            localStorage.setItem(APPROVAL_STORAGE_KEY, email);
+            updateApprovalNotice(email, 'pending');
+            stopDoctorApprovalWatcher();
+            checkDoctorApprovalStatus(email);
+            approvalWatcherInterval = setInterval(() => checkDoctorApprovalStatus(email), 10000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const pendingEmail = localStorage.getItem(APPROVAL_STORAGE_KEY);
+            if (pendingEmail){
+                startDoctorApprovalWatcher(pendingEmail);
+            }
+        });
+
         async function registerDoctor(event){
             event.preventDefault();
             const form = event.target;
             const data = Object.fromEntries(new FormData(form));
+            ['firstName','lastName','email','phone','license','experience','specialty','address','password','confirm'].forEach(field=>{
+                if (typeof data[field] === 'string'){
+                    data[field] = data[field].trim();
+                }
+            });
+            if (data.license){
+                data.license = data.license.toUpperCase();
+                const licenseInput = document.getElementById('license');
+                if (licenseInput) licenseInput.value = data.license;
+            }
             
             // Validate all fields
             const validations = {
@@ -503,10 +603,8 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('Doctor account created successfully! You can now login.');
-                    const url = new URL('login.php', location.href);
-                    url.searchParams.set('role','doctor');
-                    location.href = url.toString();
+                    alert('Registration submitted! Please wait for admin approval before logging in.');
+                    startDoctorApprovalWatcher(data.email);
                 } else {
                     alert('Error: ' + result.message);
                 }
@@ -520,6 +618,7 @@
             }
         }
     </script>
+    <script src="public/js/email-phone-validation.js"></script>
 </body>
 </html>
 

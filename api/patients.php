@@ -33,6 +33,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 // Get patient ID from URL if provided
 $patientId = isset($_GET['id']) ? $_GET['id'] : null;
+$includeDeleted = isset($_GET['include_deleted']) && $_GET['include_deleted'] === '1';
 
 // Handle different HTTP methods
 switch ($method) {
@@ -40,14 +41,14 @@ switch ($method) {
         // Retrieve patient(s)
         if ($patientId) {
             // Get specific patient
-            getPatient($pdo, $patientId);
+            getPatient($pdo, $patientId, $includeDeleted);
         } else {
             // Get all patients or filter by email if provided
             $email = isset($_GET['email']) ? $_GET['email'] : null;
             if ($email) {
-                getPatientByEmail($pdo, $email);
+                getPatientByEmail($pdo, $email, $includeDeleted);
             } else {
-                getAllPatients($pdo);
+                getAllPatients($pdo, $includeDeleted);
             }
         }
         break;
@@ -97,7 +98,7 @@ function columnExists($pdo, $table, $column) {
 }
 
 // Function to get all patients
-function getAllPatients($pdo) {
+function getAllPatients($pdo, $includeDeleted = false) {
     try {
         // Build column list robustly (gender/last_login may be absent in some DBs)
         $cols = ['id','first_name','last_name','email','phone','date_of_birth','address','created_at'];
@@ -105,7 +106,12 @@ function getAllPatients($pdo) {
         else { $cols[] = 'NULL AS gender'; }
         if (columnExists($pdo, 'users', 'last_login')) { $cols[] = 'last_login'; }
         else { $cols[] = 'NULL AS last_login'; }
+        if (columnExists($pdo, 'users', 'account_status')) { $cols[] = 'account_status'; }
+        if (columnExists($pdo, 'users', 'deleted_at')) { $cols[] = 'deleted_at'; }
         $sql = 'SELECT ' . implode(', ', $cols) . " FROM users WHERE role = 'patient'";
+        if (!$includeDeleted && columnExists($pdo, 'users', 'account_status')) {
+            $sql .= " AND (account_status IS NULL OR account_status <> 'deleted')";
+        }
         $stmt = $pdo->prepare($sql);
         $stmt->execute();
         $patients = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -119,12 +125,18 @@ function getAllPatients($pdo) {
 }
 
 // Function to get a specific patient by ID
-function getPatient($pdo, $id) {
+function getPatient($pdo, $id, $includeDeleted = false) {
     try {
         $cols = ['id','first_name','last_name','email','phone','date_of_birth','address','created_at'];
         if (columnExists($pdo, 'users', 'gender')) { $cols[] = 'gender'; } else { $cols[] = 'NULL AS gender'; }
         if (columnExists($pdo, 'users', 'last_login')) { $cols[] = 'last_login'; } else { $cols[] = 'NULL AS last_login'; }
-        $sql = 'SELECT ' . implode(', ', $cols) . " FROM users WHERE id = ? AND role = 'patient'";
+        if (columnExists($pdo, 'users', 'account_status')) { $cols[] = 'account_status'; }
+        if (columnExists($pdo, 'users', 'deleted_at')) { $cols[] = 'deleted_at'; }
+        $additionalFilter = '';
+        if (!$includeDeleted && columnExists($pdo, 'users', 'account_status')) {
+            $additionalFilter = " AND (account_status IS NULL OR account_status <> 'deleted')";
+        }
+        $sql = 'SELECT ' . implode(', ', $cols) . " FROM users WHERE id = ? AND role = 'patient'" . $additionalFilter;
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$id]);
         $patient = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -144,9 +156,16 @@ function getPatient($pdo, $id) {
 }
 
 // Function to get a patient by email
-function getPatientByEmail($pdo, $email) {
+function getPatientByEmail($pdo, $email, $includeDeleted = false) {
     try {
-        $stmt = $pdo->prepare("SELECT id, first_name, last_name, email, phone, date_of_birth, gender, address, last_login, created_at FROM users WHERE email = ? AND role = 'patient'");
+        $columns = "id, first_name, last_name, email, phone, date_of_birth, gender, address, last_login, created_at";
+        if (columnExists($pdo, 'users', 'account_status')) { $columns .= ", account_status"; }
+        if (columnExists($pdo, 'users', 'deleted_at')) { $columns .= ", deleted_at"; }
+        $sql = "SELECT {$columns} FROM users WHERE email = ? AND role = 'patient'";
+        if (!$includeDeleted && columnExists($pdo, 'users', 'account_status')) {
+            $sql .= " AND (account_status IS NULL OR account_status <> 'deleted')";
+        }
+        $stmt = $pdo->prepare($sql);
         $stmt->execute([$email]);
         $patient = $stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -292,29 +311,42 @@ function updatePatient($pdo, $id) {
 function deletePatient($pdo, $id) {
     try {
         // Check if patient exists
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE id = ? AND role = 'patient'");
+        $columns = "id";
+        if (columnExists($pdo, 'users', 'account_status')) { $columns .= ", account_status"; }
+        $stmt = $pdo->prepare("SELECT {$columns} FROM users WHERE id = ? AND role = 'patient'");
         $stmt->execute([$id]);
-        if (!$stmt->fetch()) {
+        $patient = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$patient) {
             http_response_code(404);
             echo json_encode(['success' => false, 'message' => 'Patient not found']);
             exit;
         }
         
-        // Begin transaction
-        $pdo->beginTransaction();
+        if (isset($patient['account_status']) && $patient['account_status'] === 'deleted') {
+            http_response_code(200);
+            echo json_encode(['success' => true, 'message' => 'Patient already removed from active records']);
+            exit;
+        }
         
-        // Delete patient
+        if (columnExists($pdo, 'users', 'account_status')) {
+            $stmt = $pdo->prepare("UPDATE users SET account_status = 'deleted', deleted_at = NOW() WHERE id = ? AND role = 'patient'");
+            $stmt->execute([$id]);
+            
+            http_response_code(200);
+            echo json_encode(['success' => true, 'message' => 'Patient deleted successfully']);
+            return;
+        }
+        
+        // Fall back to hard delete if column missing
         $stmt = $pdo->prepare("DELETE FROM users WHERE id = ? AND role = 'patient'");
         $stmt->execute([$id]);
         
-        // Commit transaction
-        $pdo->commit();
-        
-        http_response_code(200);
-        echo json_encode(['success' => true, 'message' => 'Patient deleted successfully']);
+        if ($stmt->rowCount() === 0) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Patient not found']);
+            exit;
+        }
     } catch (PDOException $e) {
-        // Rollback transaction on error
-        $pdo->rollBack();
         error_log('Failed to delete patient: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'Failed to delete patient']);

@@ -132,6 +132,14 @@ try {
         ]);
 
         $userId = $pdo->lastInsertId();
+        if ($role === 'doctor') {
+            try{
+                $statusStmt = $pdo->prepare("UPDATE users SET doctor_status = 'pending', approved_at = NULL, profile_complete = 0 WHERE id = ?");
+                $statusStmt->execute([$userId]);
+            }catch(PDOException $statusError){
+                error_log('Failed to set doctor status: '.$statusError->getMessage());
+            }
+        }
 
         // Log registration in system logs so admin can review from dashboard
         try {
