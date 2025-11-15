@@ -2986,14 +2986,14 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
             try{
                 // Fetch all required data in parallel
                 // For chart, fetch all patients (or at least a large number to ensure we get all)
-                const [patientsTotal, doctorsTotal, recentPatients, allPatientsForChart, appointmentsData, doctorsData, reviewsData] = await Promise.all([
+                const [patientsTotal, doctorsTotal, recentPatients, allPatientsForChart, appointmentsData, reviewsData, allDoctorsData] = await Promise.all([
                     fetchSummary('patient'),
                     fetchSummary('doctor'),
                     fetchRecent('patient', 12).catch(() => []), // Return empty array if fetch fails - used for dashboard table
                     fetch('api/patients.php').then(r => r.json()).then(data => data.success ? (data.data || []) : []).catch(() => []), // Fetch ALL patients for chart
                     fetch('api/appointments.php').then(r => r.json()).catch(() => ({success: false, data: []})),
-                    fetch('api/users.php?role=doctor&doctor_status=approved&page=1&limit=100').then(r => r.json()).catch(() => ({success: false, data: []})),
-                    fetch('api/reviews.php?limit=5').then(r => r.json()).catch(() => ({success: false, data: []}))
+                    fetch('api/reviews.php?limit=5').then(r => r.json()).catch(() => ({success: false, data: []})),
+                    fetch('api/users.php?role=doctor&page=1&limit=500').then(r => r.json()).catch(() => ({success:false, data: []}))
                 ]);
 
                 // Get actual appointments count
@@ -3009,6 +3009,12 @@ if (isset($forceSection) && in_array($forceSection, $allowedSections, true)) {
                     costs: 0, // Average costs - placeholder (no cost API available)
                     vehicles: 0 // Total vehicles - placeholder (no vehicles API available)
                 });
+                }
+
+                // Update pending doctor badge + modal list so dashboard stays accurate
+                if (allDoctorsData && allDoctorsData.success && Array.isArray(allDoctorsData.data)){
+                    pendingDoctors = allDoctorsData.data.filter(doc => (doc.doctor_status || 'approved').toLowerCase() !== 'approved');
+                    updatePendingDoctorsUI();
                 }
 
                 // Fill dashboard appointment table with actual appointments
